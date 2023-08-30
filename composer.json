@@ -1,0 +1,38 @@
+{
+  "name": "tommy/wp-passkeys",
+  "description": "Login without username and password. The most secure way to login to your WordPress site.",
+  "type": "wordpress-plugin",
+  "require-dev": {
+    "roave/security-advisories": "dev-latest",
+    "phpcompatibility/phpcompatibility-wp": "^2.1",
+    "phpunit/phpunit": "^8.0",
+    "squizlabs/php_codesniffer": "^3.6",
+    "wp-coding-standards/wpcs": "^2.3",
+    "yoast/phpunit-polyfills": "^2.0"
+  },
+  "autoload": {
+    "psr-4": {
+      "WpPasskeys\\": "includes/"
+    }
+  },
+  "autoload-dev": {
+    "classmap": [
+      "tests/"
+    ]
+  },
+  "scripts": {
+    "phpunit": "phpunit",
+    "phpcs": "phpcs --standard=WordPress,PSR12 src/",
+    "phpcbf": "phpcbf --standard=WordPress,PSR12 src/",
+    "post-install-cmd": "\"vendor/bin/phpcs\" --config-set installed_paths vendor/phpcompatibility/phpcompatibility-wp",
+    "post-update-cmd": "\"vendor/bin/phpcs\" --config-set installed_paths vendor/phpcompatibility/phpcompatibility-wp"
+  },
+  "config": {
+    "sort-packages": true
+  },
+  "prefer-stable": true,
+  "require": {
+    "web-auth/webauthn-lib": "^4.6",
+    "ext-intl": "*"
+  }
+}

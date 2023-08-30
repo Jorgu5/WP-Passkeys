@@ -1,1 +1,4 @@
 .idea/
+.travis.yml
+.phpunit.result.cache
+vendor/
