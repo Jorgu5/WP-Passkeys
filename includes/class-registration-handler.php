@@ -14,10 +14,13 @@ namespace WpPasskeys;
 use Exception;
 use JsonException;
 use RuntimeException;
+use Throwable;
 use Webauthn\AuthenticatorAttestationResponse;
+use Webauthn\AuthenticatorAttestationResponseValidator;
 use Webauthn\PublicKeyCredentialCreationOptions;
-use Webauthn\PublicKeyCredentialRpEntity;
-use Webauthn\PublicKeyCredentialUserEntity;
+use Webauthn\PublicKeyCredentialLoader;
+use WpPasskeys\Interfaces\Authentication_Handler_Interface;
+use WpPasskeys\Utilities as Util;
 use WP_Error;
 use WP_REST_Request;
 use WP_REST_Response;
@@ -25,7 +28,7 @@ use WP_REST_Response;
 /**
  * Registration Handler for WP Pass Keys.
  */
-class Registration_Handler {
+class Registration_Handler implements Authentication_Handler_Interface {
 
 	use SingletonTrait;
 
@@ -35,9 +38,9 @@ class Registration_Handler {
 	/**
 	 * The authenticator attestation response.
 	 *
-	 * @var AuthenticatorAttestationResponse|null
+	 * @var AuthenticatorAttestationResponse
 	 */
-	private ?AuthenticatorAttestationResponse $authenticator_attestation_response = null;
+	private AuthenticatorAttestationResponse $authenticator_attestation_response;
 	/**
 	 * The public key credential creation options.
 	 *
@@ -49,41 +52,24 @@ class Registration_Handler {
 	 *
 	 * @var mixed
 	 */
-	private mixed $authenticator_attestation_response_validator;
+	private AuthenticatorAttestationResponseValidator $authenticator_attestation_response_validator;
 	/**
-	 * The public key credential loader.
-	 *
 	 * @var mixed
 	 */
-	private mixed $public_key_credential_loader;
-
-	/**
-	 * Initializes a new instance of the class.
-	 *
-	 * @param mixed $public_key_credential_loader The public key credential loader.
-	 * @param mixed $authenticator_attestation_response_validator The authenticator attestation response validator.
-	 */
-	public function __construct(
-		mixed $public_key_credential_loader,
-		mixed $authenticator_attestation_response_validator
-	) {
-		$this->authenticator_attestation_response_validator = $authenticator_attestation_response_validator;
-		$this->public_key_credential_loader                 = $public_key_credential_loader;
-		$this->register_routes();
-	}
+	private PublicKeyCredentialLoader $public_key_credential_loader;
 
 	/**
 	 * Register the routes for the API.
 	 *
 	 * @return void
 	 */
-	private function register_routes(): void {
+	public function register_auth_routes(): void {
 		register_rest_route(
 			self::NAMESPACE,
 			'/startRegistration',
 			array(
 				'methods'  => 'POST',
-				'callback' => array( $this, 'create_public_key_credential_creation_options' ),
+				'callback' => array( $this, 'create_pk_credential_creation_options' ),
 			)
 		);
 
@@ -92,7 +78,7 @@ class Registration_Handler {
 			'/verifyCreation',
 			array(
 				'methods'  => 'POST',
-				'callback' => array( $this, 'handle_creation_response' ),
+				'callback' => array( $this, 'response_authentication' ),
 			)
 		);
 	}
@@ -101,13 +87,9 @@ class Registration_Handler {
 	 * Stores the public key credential source.
 	 *
 	 * @throws RuntimeException If the AuthenticatorAttestationResponse is missing.
-	 * @throws RuntimeException If failed to store the credential source.
+	 * @throws RuntimeException|Throwable If failed to store the credential source.
 	 */
 	public function store_public_key_credential_source(): void {
-		if ( ! $this->authenticator_attestation_response ) {
-			throw new RuntimeException( 'Failed to store: AuthenticatorAttestationResponse is missing.' );
-		}
-
 		try {
 			$public_key_credential_source = $this->authenticator_attestation_response_validator->check(
 				$this->authenticator_attestation_response,
@@ -129,27 +111,17 @@ class Registration_Handler {
 	 * @throws RuntimeException If an error occurs during the process.
 	 * @return WP_REST_Response A REST response object with the result.
 	 */
-	public function create_public_key_credential_creation_options( WP_REST_Request $request
+	public function create_public_key_credential_options( WP_REST_Request $request
 	): WP_REST_Response {
 		// TODO: Pass the valid data to Entities.
 		try {
-			$rp_entity   = PublicKeyCredentialRpEntity::create( 'foo', 'bar', null );
-			$user_entity = PublicKeyCredentialUserEntity::create(
-				'foo',
-				'bar',
-				'foo',
-				null
-			);
-
-			$challenge = random_bytes( 16 );
-
+			$challenge                             = random_bytes( 16 );
 			$public_key_credential_parameters_list = array(
 				// TODO: Check what parameters we can use here and add it.
 			);
-
 			$this->public_key_credential_creation_options = PublicKeyCredentialCreationOptions::create(
-				$rp_entity,
-				$user_entity,
+				Util::create_rp_entity(),
+				Util::create_user_entity(),
 				$challenge,
 				$public_key_credential_parameters_list,
 			);
@@ -167,10 +139,10 @@ class Registration_Handler {
 	 *
 	 * @return WP_REST_Response|WP_Error a REST response object with the result.
 	 */
-	public function handle_creation_response(
+	public function response_authenticator(
 		WP_REST_Request $request
 	): WP_REST_Response|WP_Error {
-		// format $request properly to fit into $data.
+		// TODO: Format $request properly to fit into $data.
 		try {
 			$data                               = $request->get_body_params();
 			$public_key_credential              = $this->public_key_credential_loader->load( $data );
@@ -184,6 +156,8 @@ class Registration_Handler {
 
 			return new WP_REST_Response( array( 'message' => 'Success' ), 200 );
 		} catch ( JsonException | Exception $e ) {
+			return new WP_Error( 'Invalid_response', $e->getMessage(), array( 'status' => 400 ) );
+		} catch ( Throwable $e ) {
 			return new WP_Error( 'Invalid_response', $e->getMessage(), array( 'status' => 400 ) );
 		}
 	}

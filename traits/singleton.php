@@ -7,6 +7,8 @@
 
 namespace WpPassKeys\SingletonTrait;
 
+use WpPasskeys\Authentication_Handler;
+
 /**
  * Trait SingletonTrait
  *
@@ -20,7 +22,7 @@ trait SingletonTrait {
 	 *
 	 * @var SingletonTrait
 	 */
-	private static $instance;
+	private static SingletonTrait $instance;
 
 	/**
 	 * SingletonTrait constructor.
@@ -33,7 +35,7 @@ trait SingletonTrait {
 	/**
 	 * Returns the Singleton instance of this class.
 	 *
-	 * @return static
+	 * @return Authentication_Handler|SingletonTrait
 	 */
 	public static function instance(): self {
 		if ( null === self::$instance ) {
