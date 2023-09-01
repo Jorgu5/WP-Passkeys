@@ -1,0 +1,9 @@
+{
+  "compilerOptions": {
+    "target": "es2021",
+    "strict": true,
+    "types": [ "node" ],
+    "typeRoots": [ "../node_modules/@types" ],
+    "moduleResolution": "Node",
+  }
+}
