@@ -32,8 +32,7 @@ class Registration_Handler implements Authentication_Handler_Interface {
 
 	use SingletonTrait;
 
-	private const NAMESPACE = 'wp-passkeys/v1';
-	private const DOMAIN    = 'localhost';
+	private const NAMESPACE = 'wp-passkeys/registration';
 
 	/**
 	 * The authenticator attestation response.
@@ -66,16 +65,16 @@ class Registration_Handler implements Authentication_Handler_Interface {
 	public function register_auth_routes(): void {
 		register_rest_route(
 			self::NAMESPACE,
-			'/startRegistration',
+			'/start',
 			array(
 				'methods'  => 'POST',
-				'callback' => array( $this, 'create_pk_credential_creation_options' ),
+				'callback' => array( $this, 'create_public_key_credential_options' ),
 			)
 		);
 
 		register_rest_route(
 			self::NAMESPACE,
-			'/verifyCreation',
+			'/verify',
 			array(
 				'methods'  => 'POST',
 				'callback' => array( $this, 'response_authentication' ),
@@ -94,7 +93,7 @@ class Registration_Handler implements Authentication_Handler_Interface {
 			$public_key_credential_source = $this->authenticator_attestation_response_validator->check(
 				$this->authenticator_attestation_response,
 				$this->public_key_credential_creation_options,
-				self::DOMAIN
+				get_site_url()
 			);
 
 			$credential_helper = new Credential_Helper();
@@ -113,15 +112,15 @@ class Registration_Handler implements Authentication_Handler_Interface {
 	 */
 	public function create_public_key_credential_options( WP_REST_Request $request
 	): WP_REST_Response {
-		// TODO: Pass the valid data to Entities.
 		try {
-			$challenge                             = random_bytes( 16 );
-			$public_key_credential_parameters_list = array(
-				// TODO: Check what parameters we can use here and add it.
+			$challenge                                    = random_bytes( 32 );
+			$public_key_credential_parameters_list        = array(
+				'type' => 'public-key',
+				'alg'  => -7,
 			);
 			$this->public_key_credential_creation_options = PublicKeyCredentialCreationOptions::create(
-				Util::create_rp_entity(),
-				Util::create_user_entity(),
+				Util::get_rp_entity(),
+                Util::get_user_entity( null ),
 				$challenge,
 				$public_key_credential_parameters_list,
 			);
@@ -142,7 +141,7 @@ class Registration_Handler implements Authentication_Handler_Interface {
 	public function response_authenticator(
 		WP_REST_Request $request
 	): WP_REST_Response|WP_Error {
-		// TODO: Format $request properly to fit into $data.
+		// TODO: Format $response properly to fit into $data.
 		try {
 			$data                               = $request->get_body_params();
 			$public_key_credential              = $this->public_key_credential_loader->load( $data );
