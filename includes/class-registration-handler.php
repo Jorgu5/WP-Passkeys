@@ -39,23 +39,23 @@ class Registration_Handler implements Authentication_Handler_Interface {
 	 *
 	 * @var AuthenticatorAttestationResponse
 	 */
-	private AuthenticatorAttestationResponse $authenticator_attestation_response;
+	public readonly AuthenticatorAttestationResponse $authenticator_attestation_response;
 	/**
 	 * The public key credential creation options.
 	 *
 	 * @var PublicKeyCredentialCreationOptions|null
 	 */
-	private ?PublicKeyCredentialCreationOptions $public_key_credential_creation_options;
+	public readonly ?PublicKeyCredentialCreationOptions $public_key_credential_creation_options;
 	/**
 	 * The authenticator attestation response validator.
 	 *
 	 * @var mixed
 	 */
-	private AuthenticatorAttestationResponseValidator $authenticator_attestation_response_validator;
+	public readonly AuthenticatorAttestationResponseValidator $authenticator_attestation_response_validator;
 	/**
 	 * @var mixed
 	 */
-	private PublicKeyCredentialLoader $public_key_credential_loader;
+	public readonly PublicKeyCredentialLoader $public_key_credential_loader;
 
 	/**
 	 * Register the routes for the API.

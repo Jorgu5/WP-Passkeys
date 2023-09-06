@@ -30,30 +30,22 @@ use WpPasskeys\Utilities;
 class Authentication_Handler implements Authentication_Handler_Interface {
 
 	use SingletonTrait;
-	/**
-	 * @var PublicKeyCredentialSource $public_key_credential_source
-	 */
-	private PublicKeyCredentialSource $public_key_credential_source;
-	/**
-	 * @var PublicKeyCredentialSourceRepository $public_key_credential_source_repository
-	 */
-	private PublicKeyCredentialSourceRepository $public_key_credential_source_repository;
-	/**
-	 * @var array $get_allowed_credentials
-	 */
-	private array $get_allowed_credentials;
+    /**
+     * @var PublicKeyCredentialSourceRepository $public_key_credential_source_repository;
+     */
+	public readonly PublicKeyCredentialSourceRepository $public_key_credential_source_repository;
 	/**
 	 * @var PublicKeyCredential $public_key_credential
 	 */
-	private PublicKeyCredential $public_key_credential;
+	public readonly PublicKeyCredential $public_key_credential;
 	/**
 	 * @var AuthenticatorAssertionResponseValidator $authenticator_assertion_response_validator
 	 */
-	private AuthenticatorAssertionResponseValidator $authenticator_assertion_response_validator;
+	public readonly AuthenticatorAssertionResponseValidator $authenticator_assertion_response_validator;
 	/**
 	 * @var WP_User $user
 	 */
-	private WP_User $user;
+	public readonly WP_User $user;
 
 	public function init(): void {
 		$this->user = wp_get_current_user();
