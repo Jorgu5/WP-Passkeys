@@ -122,6 +122,22 @@ class Authentication_Handler implements Authentication_Handler_Interface {
 	}
 
 	public function register_auth_routes(): void {
-		// TODO: Implement register_routes() method.
+            register_rest_route(
+                WPPASSKEYS_API_NAMESPACE . '/login',
+                '/start',
+                array(
+                    'methods'  => 'POST',
+                    'callback' => array( $this, 'create_public_key_credential_options' ),
+                )
+            );
+
+            register_rest_route(
+                WPPASSKEYS_API_NAMESPACE . '/login',
+                '/authenticate',
+                array(
+                    'methods'  => 'POST',
+                    'callback' => array( $this, 'response_authentication' ),
+                )
+            );
 	}
 }

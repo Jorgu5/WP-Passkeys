@@ -32,8 +32,6 @@ class Registration_Handler implements Authentication_Handler_Interface {
 
 	use SingletonTrait;
 
-	private const NAMESPACE = 'wp-passkeys/registration';
-
 	/**
 	 * The authenticator attestation response.
 	 *
@@ -64,7 +62,7 @@ class Registration_Handler implements Authentication_Handler_Interface {
 	 */
 	public function register_auth_routes(): void {
 		register_rest_route(
-			self::NAMESPACE,
+			WPPASSKEYS_API_NAMESPACE . '/register',
 			'/start',
 			array(
 				'methods'  => 'POST',
@@ -73,8 +71,8 @@ class Registration_Handler implements Authentication_Handler_Interface {
 		);
 
 		register_rest_route(
-			self::NAMESPACE,
-			'/verify',
+            WPPASSKEYS_API_NAMESPACE . '/register',
+			'/authenticate',
 			array(
 				'methods'  => 'POST',
 				'callback' => array( $this, 'response_authentication' ),
