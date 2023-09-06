@@ -24,13 +24,14 @@ use Cose\Algorithm\Signature\RSA\PS512;
 use Cose\Algorithm\Signature\RSA\RS256;
 use Cose\Algorithm\Signature\RSA\RS384;
 use Cose\Algorithm\Signature\RSA\RS512;
+use WpPasskeys\Traits\Singleton;
 
 /**
  * Algorithm Manager for WP Pass Keys.
  */
 class Algorithm_Manager {
 
-	use SingletonTrait;
+	use Singleton;
 
 	/**
 	 * The algorithm manager instance.

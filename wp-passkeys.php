@@ -3,7 +3,7 @@
  * Plugin Name: WP Passkeys
  * Plugin URI: https://thecavers.io
  * Description: Login without username and password. The most secure way to login to your WordPress site.
- * Version: 1.0
+ * Version: 0.1.0
  * Author: Tommy Sobolew.ski
  * Author URI: https://sobolew.ski/
  * License: A "Slug" license name e.g. GPL2
@@ -11,20 +11,18 @@
  * @package WpPasskeys
  */
 
+use WpPasskeys\Passkeys_Plugin;
+
 defined( 'ABSPATH' ) || exit;
 
-// Define constants
+// Define constants.
+define( 'WP_PASSKEYS_PLUGIN_PATH', plugin_dir_path( __FILE__ ) );
+const WP_PASSKEYS_API_NAMESPACE = 'wp-passkeys';
 
-define( 'WPPASSKEYS_PLUGIN_PATH', plugin_dir_path( __FILE__ ) );
-
-const WPPASSKEYS_API_NAMESPACE = 'wp-passkeys';
-
-
-// Include necessary files.
-require_once WPPASSKEYS_PLUGIN_PATH . 'includes/class-plugin.php';
+require_once WP_PASSKEYS_PLUGIN_PATH . 'vendor/autoload.php';
 
 // Activation hook.
-register_activation_hook( __FILE__, array( 'WpPasskeys', 'activate' ) );
+register_activation_hook( __FILE__, array(Passkeys_Plugin::class, 'activate'));
 
 // Initialization.
-WpPasskeys::instance();
+Passkeys_Plugin::instance()->run();

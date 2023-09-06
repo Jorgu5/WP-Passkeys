@@ -19,8 +19,9 @@ use Webauthn\AuthenticatorAttestationResponse;
 use Webauthn\AuthenticatorAttestationResponseValidator;
 use Webauthn\PublicKeyCredentialCreationOptions;
 use Webauthn\PublicKeyCredentialLoader;
-use WpPasskeys\Interfaces\Authentication_Handler_Interface;
-use WpPasskeys\Utilities as Util;
+use WpPasskeys\Interfaces\Authentication;
+use WpPasskeys\Traits\Singleton;
+use WpPasskeys\utilities as Util;
 use WP_Error;
 use WP_REST_Request;
 use WP_REST_Response;
@@ -28,9 +29,9 @@ use WP_REST_Response;
 /**
  * Registration Handler for WP Pass Keys.
  */
-class Registration_Handler implements Authentication_Handler_Interface {
+class Registration_Handler implements Authentication {
 
-	use SingletonTrait;
+    use Singleton;
 
 	/**
 	 * The authenticator attestation response.
@@ -55,6 +56,10 @@ class Registration_Handler implements Authentication_Handler_Interface {
 	 */
 	public readonly PublicKeyCredentialLoader $public_key_credential_loader;
 
+    public function init(): void {
+        add_action( 'rest_api_init', array( $this, 'register_auth_routes' ) );
+    }
+
 	/**
 	 * Register the routes for the API.
 	 *
@@ -62,20 +67,20 @@ class Registration_Handler implements Authentication_Handler_Interface {
 	 */
 	public function register_auth_routes(): void {
 		register_rest_route(
-			WPPASSKEYS_API_NAMESPACE . '/register',
+            WP_PASSKEYS_API_NAMESPACE . '/register',
 			'/start',
 			array(
-				'methods'  => 'POST',
+				'methods'  => 'GET',
 				'callback' => array( $this, 'create_public_key_credential_options' ),
 			)
 		);
 
 		register_rest_route(
-            WPPASSKEYS_API_NAMESPACE . '/register',
+            WP_PASSKEYS_API_NAMESPACE . '/register',
 			'/authenticate',
 			array(
 				'methods'  => 'POST',
-				'callback' => array( $this, 'response_authentication' ),
+				'callback' => array( $this, 'response_authenticator' ),
 			)
 		);
 	}
@@ -118,7 +123,7 @@ class Registration_Handler implements Authentication_Handler_Interface {
 			);
 			$this->public_key_credential_creation_options = PublicKeyCredentialCreationOptions::create(
 				Util::get_rp_entity(),
-                Util::get_user_entity( null ),
+				Util::get_user_entity( null ),
 				$challenge,
 				$public_key_credential_parameters_list,
 			);

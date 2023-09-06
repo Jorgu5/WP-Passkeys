@@ -23,16 +23,16 @@ use WP_Error;
 use WP_REST_Request;
 use WP_REST_Response;
 use WP_User;
-use WpPasskeys\Interfaces\Authentication_Handler_Interface;
-use WpPassKeys\SingletonTrait\SingletonTrait;
-use WpPasskeys\Utilities;
+use WpPasskeys\Interfaces\Authentication;
+use WpPasskeys\Traits\Singleton;
+use WpPasskeys\utilities;
 
-class Authentication_Handler implements Authentication_Handler_Interface {
+class Authentication_Handler implements Authentication {
 
-	use SingletonTrait;
-    /**
-     * @var PublicKeyCredentialSourceRepository $public_key_credential_source_repository;
-     */
+	use Singleton;
+	/**
+	 * @var PublicKeyCredentialSourceRepository $public_key_credential_source_repository;
+	 */
 	public readonly PublicKeyCredentialSourceRepository $public_key_credential_source_repository;
 	/**
 	 * @var PublicKeyCredential $public_key_credential
@@ -48,8 +48,18 @@ class Authentication_Handler implements Authentication_Handler_Interface {
 	public readonly WP_User $user;
 
 	public function init(): void {
-		$this->user = wp_get_current_user();
+        add_action('wp', array($this, 'get_current_user'));
+        add_action('rest_api_init', array($this, 'register_auth_routes'));
 	}
+
+    /**
+     * Sets up the current user.
+     *
+     * @return WP_User The current user.
+     */
+    public function get_current_user(): WP_User {
+        return $this->user = wp_get_current_user();
+    }
 
 	/**
 	 * @throws \Exception
@@ -66,21 +76,26 @@ class Authentication_Handler implements Authentication_Handler_Interface {
 													PublicKeyCredentialRequestOptions::USER_VERIFICATION_REQUIREMENT_REQUIRED
 												);
 
-			set_transient( 'public_key_credential_request_options_' . $this->user->ID, $public_key_credential_request_options, 300 );
+			set_transient( 'public_key_credential_request_options_' . $this->get_current_user()->ID, $public_key_credential_request_options, 300 );
 
-			return new WP_REST_Response( array( 'message' => 'Success' ), 200 );
+            $response_data = [
+                'message' => 'Success',
+                'credentialOptions' => $public_key_credential_request_options, // Your credentials data here
+            ];
+
+			return new WP_REST_Response( $response_data, 200 );
 		} catch ( Exception $e ) {
 			throw new RuntimeException( $e->getMessage() );
 		}
 	}
 
-    /**
-     * Retrieves the allowed credentials for a user entity.
-     *
-     * @return array The array of allowed credentials.
-     */
+	/**
+	 * Retrieves the allowed credentials for a user entity.
+	 *
+	 * @return array The array of allowed credentials.
+	 */
 	private function get_allowed_credentials(): array {
-		$user_entity = Utilities::get_user_entity(wp_get_current_user());
+		$user_entity              = utilities::get_user_entity( $this->get_current_user());
 		$registeredAuthenticators = $this->public_key_credential_source_repository->findAllForUserEntity( $user_entity );
 
 		return array_map(
@@ -108,7 +123,7 @@ class Authentication_Handler implements Authentication_Handler_Interface {
 			$this->authenticator_assertion_response_validator->check(
 				$this->public_key_credential->getRawId(),
 				$authenticator_assertion_response,
-				get_transient( 'public_key_credential_request_options_' . $this->user->ID ),
+				get_transient( 'public_key_credential_request_options_' . $this->get_current_user()->ID ),
 				get_site_url(),
 				$authenticator_assertion_response->getUserHandle(),
 			);
@@ -122,22 +137,22 @@ class Authentication_Handler implements Authentication_Handler_Interface {
 	}
 
 	public function register_auth_routes(): void {
-            register_rest_route(
-                WPPASSKEYS_API_NAMESPACE . '/login',
-                '/start',
-                array(
-                    'methods'  => 'POST',
-                    'callback' => array( $this, 'create_public_key_credential_options' ),
-                )
-            );
+			register_rest_route(
+                WP_PASSKEYS_API_NAMESPACE . '/login',
+				'/start',
+				array(
+					'methods'  => 'POST',
+					'callback' => array( $this, 'create_public_key_credential_options' ),
+				)
+			);
 
-            register_rest_route(
-                WPPASSKEYS_API_NAMESPACE . '/login',
-                '/authenticate',
-                array(
-                    'methods'  => 'POST',
-                    'callback' => array( $this, 'response_authentication' ),
-                )
-            );
+			register_rest_route(
+                WP_PASSKEYS_API_NAMESPACE . '/login',
+				'/authenticate',
+				array(
+					'methods'  => 'POST',
+					'callback' => array( $this, 'response_authentication' ),
+				)
+			);
 	}
 }
