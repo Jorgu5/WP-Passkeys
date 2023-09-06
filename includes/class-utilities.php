@@ -51,14 +51,33 @@ class Utilities {
         );
     }
 
-    /**
-     * Generate a binary ID using wp_generate_uuid4() and convert it to binary.
-     *
-     * @return string The binary ID.
-     */
-    private static function generate_binary_id(): string
-    {
-        $uuid = wp_generate_uuid4();
-        return hex2bin(str_replace('-', '', $uuid));
-    }
+	/**
+	 * Generate a binary ID using wp_generate_uuid4() and convert it to binary.
+	 *
+	 * @return string The binary ID.
+	 */
+	private static function generate_binary_id(): string {
+		$uuid = wp_generate_uuid4();
+		return hex2bin( str_replace( '-', '', $uuid ) );
+	}
+
+	/**
+	 * Set the plugin version.
+	 *
+	 * This function sets the version of the plugin by retrieving the plugin data
+	 * using the `get_plugin_data` function and defining the constant
+	 * `WPPASSKEYS_VERSION` with the plugin's version.
+	 *
+	 * @return void
+	 */
+	public static function set_plugin_version(): void {
+		if ( ! function_exists( 'get_plugin_data' ) ) {
+			require_once ABSPATH . 'wp-admin/includes/plugin.php';
+		}
+		$plugin_data = get_plugin_data( __FILE__ );
+        if( ! defined( 'WP_PASSKEYS_VERSION' )) {
+            define( 'WP_PASSKEYS_VERSION', $plugin_data['Version'] );
+        }
+	}
+
 }
