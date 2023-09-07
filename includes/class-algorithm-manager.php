@@ -43,7 +43,8 @@ class Algorithm_Manager {
 	/**
 	 * Constructor for the class.
 	 */
-	private function __construct() {
+	public function init(): void
+    {
 		$this->algorithm_manager = Manager::create()->add(
 			ES256::create(),
 			ES256K::create(),
@@ -63,9 +64,23 @@ class Algorithm_Manager {
 	/**
 	 * Retrieves the algorithm manager instance.
 	 *
-	 * @return Manager|null The algorithm manager instance.
+	 * @return array The algorithm manager instance.
 	 */
-	public function get_algorithm_manager(): ?Manager {
-		return $this->algorithm_manager;
+	public function get_algorithm_identifiers(): array {
+		return array(
+			ES256::identifier()  => -7,  // ECDSA w/ SHA-256
+			ES256K::identifier() => -47, // ECDSA w/ SHA-256 with secp256k1 curve
+			ES384::identifier()  => -35, // ECDSA w/ SHA-384
+			ES512::identifier()  => -36, // ECDSA w/ SHA-512
+			RS256::identifier()  => -257, // RSA w/ SHA-256
+			RS384::identifier()  => -258, // RSA w/ SHA-384
+			RS512::identifier()  => -259, // RSA w/ SHA-512
+			PS256::identifier()  => -37, // RSA w/ SHA-256 and PSS
+			PS384::identifier()  => -38, // RSA w/ SHA-384 and PSS
+			PS512::identifier()  => -39, // RSA w/ SHA-512 and PSS
+			Ed256::identifier()  => -8,  // EdDSA w/ Ed25519
+			Ed512::identifier()  => -9,   // EdDSA w/ Ed448
+		);
 	}
+
 }
