@@ -6,7 +6,7 @@ use WpPasskeys\Traits\Singleton;
 
 class Enqueue_Assets {
 
-    use Singleton;
+	use Singleton;
 
 
 	/**
@@ -45,13 +45,13 @@ class Enqueue_Assets {
 		);
 	}
 
-    /**
-     * Retrieves the path to the asset's directory.
-     *
-     * @return string The path to the asset's directory.
-     */
-    private function get_assets_path(): string {
-        return plugin_dir_url( __DIR__ ) . 'dist/';
-    }
+	/**
+	 * Retrieves the path to the asset's directory.
+	 *
+	 * @return string The path to the asset's directory.
+	 */
+	private function get_assets_path(): string {
+		return plugin_dir_url( __DIR__ ) . 'dist/';
+	}
 
 }
