@@ -16,21 +16,21 @@ use WpPasskeys\Traits\Singleton;
 class Passkeys_Plugin {
 	use Singleton;
 
-    /**
+	/**
 	 * Hook into actions and filters.
 	 */
 	private function init_hooks(): void {
-        add_action( 'init', array( $this, 'init' ), 0 );
-        Enqueue_Assets::instance()->init();
-        Authentication_Handler::instance()->init();
-        Registration_Handler::instance()->init();
-    }
+		add_action( 'init', array( $this, 'init' ), 0 );
+		Enqueue_Assets::instance()->init();
+		Authentication_Handler::instance()->init();
+		Registration_Handler::instance()->init();
+	}
 
 	/**
 	 * Activation hook.
 	 */
 	public static function activate(): void {
-        Utilities::set_plugin_version();
+		Utilities::set_plugin_version();
 	}
 
 	/**
@@ -45,6 +45,6 @@ class Passkeys_Plugin {
 	 */
 	public function init(): void {
 		$this->init_hooks();
-        self::activate();
-    }
+		self::activate();
+	}
 }
