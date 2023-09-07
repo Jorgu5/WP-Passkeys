@@ -12,54 +12,50 @@ namespace WpPasskeys\traits;
 /**
  * Trait Singleton
  */
-trait Singleton
-{
-    /**
-     * The instance of the class.
-     *
-     * @var self
-     */
-    private static ?self $instance = null;
+trait Singleton {
 
-    /**
-     * Singleton constructor.
-     *
-     * Private to prevent instantiation from outside.
-     */
-    private function __construct()
-    {
-    }
+	/**
+	 * The instance of the class.
+	 *
+	 * @var self
+	 */
+	private static ?self $instance = null;
 
-    /**
-     * Returns the Singleton instance of this class.
-     *
-     * @return self
-     */
-    public static function instance(): self
-    {
-        // Initialize the instance if it hasn't been already.
-        if (self::$instance === null) {
-            self::$instance = new static();
-        }
+	/**
+	 * Singleton constructor.
+	 *
+	 * Private to prevent instantiation from outside.
+	 */
+	private function __construct() {
+	}
 
-        return self::$instance;
-    }
+	/**
+	 * Returns the Singleton instance of this class.
+	 *
+	 * @return self
+	 */
+	public static function instance(): self {
+		// Initialize the instance if it hasn't been already.
+		if ( self::$instance === null ) {
+			self::$instance = new static();
+		}
 
-    /**
-     * Prevents the instance from being cloned.
-     *
-     * @return void
-     */
-    private function __clone()
-    {
-    }
+		return self::$instance;
+	}
 
-    /**
-     * Prevents the instance from being unserialized.
-     *
-     * @return void
-     */
-    private function __wakeup()
-    {
-    }
+	/**
+	 * Prevents the instance from being cloned.
+	 *
+	 * @return void
+	 */
+	private function __clone() {
+	}
+
+	/**
+	 * Prevents the instance from being unserialized.
+	 *
+	 * @return void
+	 */
+	private function __wakeup() {
+	}
 }

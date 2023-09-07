@@ -48,18 +48,18 @@ class Authentication_Handler implements Authentication {
 	public readonly WP_User $user;
 
 	public function init(): void {
-        add_action('wp', array($this, 'get_current_user'));
-        add_action('rest_api_init', array($this, 'register_auth_routes'));
+		add_action( 'wp', array( $this, 'get_current_user' ) );
+		add_action( 'rest_api_init', array( $this, 'register_auth_routes' ) );
 	}
 
-    /**
-     * Sets up the current user.
-     *
-     * @return WP_User The current user.
-     */
-    public function get_current_user(): WP_User {
-        return $this->user = wp_get_current_user();
-    }
+	/**
+	 * Sets up the current user.
+	 *
+	 * @return WP_User The current user.
+	 */
+	public function get_current_user(): WP_User {
+		return $this->user = wp_get_current_user();
+	}
 
 	/**
 	 * @throws \Exception
@@ -95,7 +95,7 @@ class Authentication_Handler implements Authentication {
 	 * @return array The array of allowed credentials.
 	 */
 	private function get_allowed_credentials(): array {
-		$user_entity              = utilities::get_user_entity( $this->get_current_user());
+		$user_entity              = utilities::get_user_entity( $this->get_current_user() );
 		$registeredAuthenticators = $this->public_key_credential_source_repository->findAllForUserEntity( $user_entity );
 
 		return array_map(
@@ -138,7 +138,7 @@ class Authentication_Handler implements Authentication {
 
 	public function register_auth_routes(): void {
 			register_rest_route(
-                WP_PASSKEYS_API_NAMESPACE . '/login',
+				WP_PASSKEYS_API_NAMESPACE . '/login',
 				'/start',
 				array(
 					'methods'  => 'POST',
@@ -147,7 +147,7 @@ class Authentication_Handler implements Authentication {
 			);
 
 			register_rest_route(
-                WP_PASSKEYS_API_NAMESPACE . '/login',
+				WP_PASSKEYS_API_NAMESPACE . '/login',
 				'/authenticate',
 				array(
 					'methods'  => 'POST',

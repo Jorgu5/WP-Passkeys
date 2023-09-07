@@ -43,8 +43,7 @@ class Algorithm_Manager {
 	/**
 	 * Constructor for the class.
 	 */
-	public function init(): void
-    {
+	public function init(): void {
 		$this->algorithm_manager = Manager::create()->add(
 			ES256::create(),
 			ES256K::create(),

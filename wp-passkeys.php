@@ -22,7 +22,7 @@ const WP_PASSKEYS_API_NAMESPACE = 'wp-passkeys';
 require_once WP_PASSKEYS_PLUGIN_PATH . 'vendor/autoload.php';
 
 // Activation hook.
-register_activation_hook( __FILE__, array(Passkeys_Plugin::class, 'activate'));
+register_activation_hook( __FILE__, array( Passkeys_Plugin::class, 'activate' ) );
 
 // Initialization.
 Passkeys_Plugin::instance()->run();
