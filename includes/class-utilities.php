@@ -18,7 +18,7 @@ class Utilities {
 	public static function get_rp_entity(): PublicKeyCredentialRpEntity {
 		return PublicKeyCredentialRpEntity::create(
 			get_bloginfo( 'name' ),
-			get_site_url(),
+			self::get_hostname(),
 			null
 		);
 	}
@@ -78,6 +78,16 @@ class Utilities {
         if( ! defined( 'WP_PASSKEYS_VERSION' )) {
             define( 'WP_PASSKEYS_VERSION', $plugin_data['Version'] );
         }
+	}
+
+	/**
+	 * Retrieves the hostname of the current site.
+	 *
+	 * @return string The hostname of the current site.
+	 */
+	private static function get_hostname(): string {
+		$site_url = get_site_url();
+		return parse_url( $site_url, PHP_URL_HOST );
 	}
 
 }
