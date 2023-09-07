@@ -78,10 +78,10 @@ class Authentication_Handler implements Authentication {
 
 			set_transient( 'public_key_credential_request_options_' . $this->get_current_user()->ID, $public_key_credential_request_options, 300 );
 
-            $response_data = [
-                'message' => 'Success',
-                'credentialOptions' => $public_key_credential_request_options, // Your credentials data here
-            ];
+			$response_data = array(
+				'message'           => 'Success',
+				'credentialOptions' => $public_key_credential_request_options, // Your credentials data here
+			);
 
 			return new WP_REST_Response( $response_data, 200 );
 		} catch ( Exception $e ) {
