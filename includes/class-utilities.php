@@ -75,9 +75,9 @@ class Utilities {
 			require_once ABSPATH . 'wp-admin/includes/plugin.php';
 		}
 		$plugin_data = get_plugin_data( __FILE__ );
-        if( ! defined( 'WP_PASSKEYS_VERSION' )) {
-            define( 'WP_PASSKEYS_VERSION', $plugin_data['Version'] );
-        }
+		if ( ! defined( 'WP_PASSKEYS_VERSION' ) ) {
+			define( 'WP_PASSKEYS_VERSION', $plugin_data['Version'] );
+		}
 	}
 
 	/**
