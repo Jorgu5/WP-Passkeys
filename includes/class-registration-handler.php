@@ -19,6 +19,7 @@ use Webauthn\AuthenticatorAttestationResponse;
 use Webauthn\AuthenticatorAttestationResponseValidator;
 use Webauthn\PublicKeyCredentialCreationOptions;
 use Webauthn\PublicKeyCredentialLoader;
+use Webauthn\PublicKeyCredentialParameters;
 use WpPasskeys\Interfaces\Authentication;
 use WpPasskeys\Traits\Singleton;
 use WpPasskeys\utilities as Util;
@@ -31,7 +32,7 @@ use WP_REST_Response;
  */
 class Registration_Handler implements Authentication {
 
-    use Singleton;
+	use Singleton;
 
 	/**
 	 * The authenticator attestation response.
@@ -56,9 +57,9 @@ class Registration_Handler implements Authentication {
 	 */
 	public readonly PublicKeyCredentialLoader $public_key_credential_loader;
 
-    public function init(): void {
-        add_action( 'rest_api_init', array( $this, 'register_auth_routes' ) );
-    }
+	public function init(): void {
+		add_action( 'rest_api_init', array( $this, 'register_auth_routes' ) );
+	}
 
 	/**
 	 * Register the routes for the API.
@@ -67,7 +68,7 @@ class Registration_Handler implements Authentication {
 	 */
 	public function register_auth_routes(): void {
 		register_rest_route(
-            WP_PASSKEYS_API_NAMESPACE . '/register',
+			WP_PASSKEYS_API_NAMESPACE . '/register',
 			'/start',
 			array(
 				'methods'  => 'GET',
@@ -76,7 +77,7 @@ class Registration_Handler implements Authentication {
 		);
 
 		register_rest_route(
-            WP_PASSKEYS_API_NAMESPACE . '/register',
+			WP_PASSKEYS_API_NAMESPACE . '/register',
 			'/authenticate',
 			array(
 				'methods'  => 'POST',
@@ -116,19 +117,26 @@ class Registration_Handler implements Authentication {
 	public function create_public_key_credential_options( WP_REST_Request $request
 	): WP_REST_Response {
 		try {
-			$challenge                                    = random_bytes( 32 );
-			$public_key_credential_parameters_list        = array(
-				'type' => 'public-key',
-				'alg'  => -7,
-			);
+			$challenge                        = random_bytes( 32 );
+			$algorithm_manager                = Algorithm_Manager::instance();
+			$algorithm_manager_keys           = $algorithm_manager->get_algorithm_identifiers();
+			$public_key_credential_parameters = array();
+
+			foreach ( $algorithm_manager_keys as $algorithm_number ) {
+				$public_key_credential_parameters[] = new PublicKeyCredentialParameters(
+					'public-key',
+					$algorithm_number
+				);
+			}
+
 			$this->public_key_credential_creation_options = PublicKeyCredentialCreationOptions::create(
 				Util::get_rp_entity(),
 				Util::get_user_entity( null ),
 				$challenge,
-				$public_key_credential_parameters_list,
+				$public_key_credential_parameters,
 			);
 
-			return new WP_REST_Response( array( 'message' => 'Success' ), 200 );
+			return new WP_REST_Response( $this->public_key_credential_creation_options, 200 );
 		} catch ( Exception $e ) {
 			throw new RuntimeException( $e->getMessage() );
 		}
