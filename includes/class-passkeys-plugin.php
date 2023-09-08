@@ -19,32 +19,24 @@ class Passkeys_Plugin {
 	/**
 	 * Hook into actions and filters.
 	 */
-	private function init_hooks(): void {
-		add_action( 'init', array( $this, 'init' ), 0 );
-		Enqueue_Assets::instance()->init();
-		Authentication_Handler::instance()->init();
-		Registration_Handler::instance()->init();
-	}
+    private function init_hooks(): void {
+        Enqueue_Assets::instance()->init();
+        Authentication_Handler::instance()->init();
+        Registration_Handler::instance()->init();
+    }
 
 	/**
 	 * Activation hook.
 	 */
-	public static function activate(): void {
-		Utilities::set_plugin_version();
-	}
+    public static function activate(): void {
+        Utilities::set_plugin_version();
+    }
 
 	/**
 	 * Run the plugin.
 	 */
-	public function run(): void {
-		$this->init();
-	}
-
-	/**
-	 * Init Webauthn_Plugin when WordPress initializes.
-	 */
-	public function init(): void {
-		$this->init_hooks();
-		self::activate();
-	}
+    public function run(): void {
+        $this->init_hooks();
+        self::activate();
+    }
 }
