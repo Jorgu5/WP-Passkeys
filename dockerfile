@@ -5,6 +5,8 @@ ARG PLUGIN_NAME=wp-passkeys
 
 # Setup the OS
 RUN apt-get -qq update ; apt-get -y install unzip curl sudo subversion mariadb-client libgmp-dev \
+        && pecl install xdebug \
+        && docker-php-ext-enable xdebug \
         && apt-get autoclean \
         && chsh -s /bin/bash www-data
 
@@ -32,3 +34,12 @@ RUN echo "#!/bin/bash" > /usr/local/bin/install-wp-tests \
         && chmod ugo+x /usr/local/bin/install-wp-test* \
         && su www-data -c "/usr/local/bin/install-wp-tests.sh ${WORDPRESS_DB_NAME}_test root root '' latest true" \
         && echo "*** install-wp-tests installed"
+
+# Configure Xdebug
+RUN echo "zend_extension=$(find /usr/local/lib/php/extensions/ -name xdebug.so)" >> /usr/local/etc/php/conf.d/xdebug.ini \
+        && echo "xdebug.mode=debug" >> /usr/local/etc/php/conf.d/xdebug.ini \
+        && echo "xdebug.start_with_request=yes" >> /usr/local/etc/php/conf.d/xdebug.ini \
+        && echo "xdebug.client_host=host.docker.internal" >> /usr/local/etc/php/conf.d/xdebug.ini \
+        && echo "xdebug.client_port=9003" >> /usr/local/etc/php/conf.d/xdebug.ini \
+        && echo "xdebug.idekey=phpstorm" >> /usr/local/etc/php/conf.d/xdebug.ini \
+        && echo "xdebug.log=/tmp/xdebug.log" >> /usr/local/etc/php/conf.d/xdebug.ini
