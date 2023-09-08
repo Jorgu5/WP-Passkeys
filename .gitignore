@@ -2,3 +2,8 @@
 .travis.yml
 .phpunit.result.cache
 vendor/
+wp/
+.parcel-cache
+dist/
+package.json
+yarn-error.log
