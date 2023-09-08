@@ -9,6 +9,7 @@
 
 namespace WpPasskeys;
 
+use Exception;
 use JsonException;
 use Webauthn\Exception\InvalidDataException;
 use Webauthn\PublicKeyCredentialSource;
@@ -24,105 +25,65 @@ use Symfony\Component\Uid\Uuid;
 class Credential_Helper implements PublicKeyCredentialSourceRepository {
 
 	/**
-	 * A method to load a PublicKeyCredentialSource object given a credential ID.
+	 * Finds a PublicKeyCredentialSource by the given credential ID.
 	 *
-	 * @param string $public_key_credential_id The public key credential ID.
-	 * @return PublicKeyCredentialSource|null The PublicKeyCredentialSource object or null if not found.
-	 * @throws InvalidDataException When data is invalid.
+	 * @param string $publicKeyCredentialId The credential ID to search for.
+	 *
+	 * @return PublicKeyCredentialSource|null The found PublicKeyCredentialSource, or null if not found.
+	 * @throws InvalidDataException
 	 */
-	public function findOneByCredentialId( string $public_key_credential_id ): ?PublicKeyCredentialSource {
-		global $wpdb;
+	public function findOneByCredentialId( string $publicKeyCredentialId ): ?PublicKeyCredentialSource {
+		$userCredentialId = get_user_meta( get_current_user_id(), $publicKeyCredentialId, true );
 
-		$table_name = $wpdb->prefix . 'public_key_credential_sources';
-		$cache_key  = 'public_key_credential_' . $public_key_credential_id;
-
-		$cached_row = wp_cache_get( $cache_key );
-
-		if ( $cached_row ) {
-			return PublicKeyCredentialSource::createFromArray( (array) $cached_row );
-		}
-        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
-		$row = $wpdb->get_row(
-			$wpdb->prepare(
-            // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-				"SELECT * FROM {$table_name} WHERE public_key_credential_id = %s",
-				$public_key_credential_id
-			)
-		);
-
-		if ( $row ) {
-			wp_cache_set( $cache_key, (array) $row );
-
-			return PublicKeyCredentialSource::createFromArray( (array) $row );
+		if ( $userCredentialId ) {
+			return PublicKeyCredentialSource::createFromArray(
+				unserialize(
+					$userCredentialId,
+					array( 'allowed_classes' => __CLASS__ )
+				)
+			);
 		}
 
 		return null;
 	}
 
 	/**
-	 * Retrieves all the publicKeyCredentialSources associated with a given publicKeyCredentialUserEntity.
+	 * Finds all credential sources for a user entity.
 	 *
-	 * @param PublicKeyCredentialUserEntity $public_key_credential_user_entity The user entity.
-	 * @return array An array of publicKeyCredentialSources associated with the given publicKeyCredentialUserEntity.
-	 * @throws InvalidDataException When data is invalid.
+	 * @param PublicKeyCredentialUserEntity $publicKeyCredentialUserEntity The user entity.
+	 *
+	 * @return array The array of credential sources.
+	 * @throws InvalidDataException
 	 */
-	public function findAllForUserEntity( PublicKeyCredentialUserEntity $public_key_credential_user_entity ): array {
-		global $wpdb;
-
-		$table_name  = $wpdb->prefix . 'public_key_credential_sources';
-		$user_handle = $public_key_credential_user_entity->getId();
-
-		$cache_key = 'public_key_credential_user_' . $user_handle;
-
-		$cached_results = wp_cache_get( $cache_key );
-
-		if ( $cached_results ) {
-			return $cached_results;
-		}
-
-        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
-		$results = $wpdb->get_results(
-        // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-			$wpdb->prepare( "SELECT * FROM {$table_name} WHERE userHandle = %s", $user_handle )
-		);
-
+	public function findAllForUserEntity( PublicKeyCredentialUserEntity $publicKeyCredentialUserEntity ): array {
+		$userId             = $publicKeyCredentialUserEntity->getId();
+		$credentials        = get_user_meta( $userId );
 		$credential_sources = array();
-		foreach ( $results as $row ) {
-			$credential_sources[] = PublicKeyCredentialSource::createFromArray( (array) $row );
-		}
 
-		wp_cache_set( $cache_key, $credential_sources );
+		foreach ( $credentials as $credential ) {
+			$credential_sources[] = PublicKeyCredentialSource::createFromArray(
+				unserialize(
+					$credential[0],
+					array( 'allowed_classes' => __CLASS__ )
+				)
+			);
+		}
 
 		return $credential_sources;
 	}
 
+
 	/**
-	 * A method to store a PublicKeyCredentialSource object.
+	 * Saves a credential source to the database.
 	 *
-	 * @param PublicKeyCredentialSource $public_key_credential_source The public key credential source.
-	 * @return void Nothing.
+	 * @param PublicKeyCredentialSource $publicKeyCredentialSource The credential source to save.
+	 * @throws Exception If there is an error saving the credential source.
+	 * @return void
 	 */
-	public function saveCredentialSource( PublicKeyCredentialSource $public_key_credential_source ): void {
-		global $wpdb;
-		$table_name = $wpdb->prefix . 'public_key_credential_sources';
+	public function saveCredentialSource( PublicKeyCredentialSource $publicKeyCredentialSource ): void {
+		$public_key_credential_id = $publicKeyCredentialSource->getPublicKeyCredentialId();
+		$meta_value               = serialize( $publicKeyCredentialSource->jsonSerialize() );
 
-		$data = array(
-			'publicKeyCredentialId' => $public_key_credential_source->getPublicKeyCredentialId(),
-			'type'                  => $public_key_credential_source->getType(),
-			'transports'            => wp_json_encode( $public_key_credential_source->getTransports(), JSON_THROW_ON_ERROR ),
-			'attestationType'       => $public_key_credential_source->getAttestationType(),
-			'trustPath'             => wp_json_encode(
-				$public_key_credential_source->getTrustPath()->jsonSerialize(),
-				JSON_THROW_ON_ERROR
-			),
-			'aaguid'                => $public_key_credential_source->getAaguid()->__toString(),
-			'credentialPublicKey'   => $public_key_credential_source->getCredentialPublicKey(),
-			'userHandle'            => $public_key_credential_source->getUserHandle(),
-			'counter'               => $public_key_credential_source->getCounter(),
-			'otherUI'               => wp_json_encode( $public_key_credential_source->getOtherUI(), JSON_THROW_ON_ERROR ),
-		);
-
-        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
-		$wpdb->insert( $table_name, $data );
+		update_user_meta( get_current_user_id(), $public_key_credential_id, $meta_value );
 	}
 }
