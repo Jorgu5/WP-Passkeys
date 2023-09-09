@@ -5,5 +5,6 @@
     "types": [ "node" ],
     "typeRoots": [ "../node_modules/@types" ],
     "moduleResolution": "Node",
+    "allowSyntheticDefaultImports": true
   }
 }
