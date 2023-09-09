@@ -23,6 +23,7 @@ require_once WP_PASSKEYS_PLUGIN_PATH . 'vendor/autoload.php';
 
 // Activation hook.
 register_activation_hook( __FILE__, array( Passkeys_Plugin::class, 'activate' ) );
+register_activation_hook( __FILE__, array( Passkeys_Plugin::class, 'create_tables' ) );
 
 // Initialization.
 Passkeys_Plugin::instance()->run();
