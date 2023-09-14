@@ -3,27 +3,25 @@
   "description": "Login without username and password. The most secure way to login to your WordPress site.",
   "type": "wordpress-plugin",
   "require-dev": {
-    "roave/security-advisories": "dev-latest",
     "phpcompatibility/phpcompatibility-wp": "^2.1",
+    "phpmd/phpmd": "^2.13",
+    "phpstan/phpstan": "^1.10",
     "phpunit/phpunit": "^8.0",
+    "roave/security-advisories": "dev-latest",
     "squizlabs/php_codesniffer": "^3.6",
+    "vimeo/psalm": "^4.30",
     "wp-coding-standards/wpcs": "^2.3",
     "yoast/phpunit-polyfills": "^2.0"
   },
   "autoload": {
-    "wordpress": {
+    "psr-4": {
       "WpPasskeys\\": "includes/"
-    }
-  },
-  "autoload-dev": {
-    "wordpress": {
-      "WpPasskeys\\Tests\\": "tests/"
     }
   },
   "scripts": {
     "phpunit": "phpunit",
-    "phpcs": "phpcs --standard=WordPress,PSR12 src/",
-    "phpcbf": "phpcbf --standard=WordPress,PSR12 src/",
+    "phpcs": "phpcs --standard=PSR12 includes/",
+    "phpcbf": "phpcbf --standard=PSR12 includes/",
     "post-install-cmd": "\"vendor/bin/phpcs\" --config-set installed_paths vendor/phpcompatibility/phpcompatibility-wp",
     "post-update-cmd": "\"vendor/bin/phpcs\" --config-set installed_paths vendor/phpcompatibility/phpcompatibility-wp"
   },
@@ -38,10 +36,5 @@
     "ext-intl": "*",
     "alleyinteractive/composer-wordpress-autoloader": "^1.0",
     "web-auth/webauthn-lib": "^4.6"
-  },
-  "extra": {
-    "wordpress-autoloader": {
-      "inject": true
-    }
   }
 }

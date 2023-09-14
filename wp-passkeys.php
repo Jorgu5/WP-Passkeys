@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Plugin Name: WP Passkeys
  * Plugin URI: https://thecavers.io
@@ -11,19 +12,18 @@
  * @package WpPasskeys
  */
 
-use WpPasskeys\Passkeys_Plugin;
+use WpPasskeys\PasskeysPlugin;
 
-defined( 'ABSPATH' ) || exit;
+defined('ABSPATH') || exit;
 
 // Define constants.
-define( 'WP_PASSKEYS_PLUGIN_PATH', plugin_dir_path( __FILE__ ) );
+define('WP_PASSKEYS_PLUGIN_PATH', plugin_dir_path(__FILE__));
 const WP_PASSKEYS_API_NAMESPACE = 'wp-passkeys';
 
 require_once WP_PASSKEYS_PLUGIN_PATH . 'vendor/autoload.php';
 
 // Activation hook.
-register_activation_hook( __FILE__, array( Passkeys_Plugin::class, 'activate' ) );
-register_activation_hook( __FILE__, array( Passkeys_Plugin::class, 'create_tables' ) );
+register_activation_hook(__FILE__, array( PasskeysPlugin::class, 'activate' ));
 
 // Initialization.
-Passkeys_Plugin::instance()->run();
+PasskeysPlugin::instance()->run();
