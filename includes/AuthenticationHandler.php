@@ -13,6 +13,7 @@ use JsonException;
 use RuntimeException;
 use Webauthn\AuthenticatorAssertionResponse;
 use Webauthn\AuthenticatorAssertionResponseValidator;
+use Webauthn\Exception\InvalidDataException;
 use Webauthn\PublicKeyCredential;
 use Webauthn\PublicKeyCredentialDescriptor;
 use Webauthn\PublicKeyCredentialRequestOptions;
@@ -22,33 +23,22 @@ use WP_Error;
 use WP_REST_Request;
 use WP_REST_Response;
 use WP_User;
-use WpPasskeys\Interfaces\AuthenticationInterface;
+use WpPasskeys\Exceptions\CredentialException;
+use WpPasskeys\Interfaces\WebAuthnInterface;
 use WpPasskeys\Traits\SingletonTrait;
 use WpPasskeys\utilities;
 
-class AuthenticationHandler implements AuthenticationInterface
+class AuthenticationHandler implements WebAuthnInterface
 {
-    use SingletonTrait;
-
-    public readonly PublicKeyCredentialSourceRepository $publicKeyCredentialSourceRepository;
+    public readonly CredentialHelper $credentialHelper;
     public readonly PublicKeyCredential $publicKeyCredential;
     public readonly AuthenticatorAssertionResponseValidator $authenticatorAssertionResponseValidator;
     public readonly WP_User $user;
+    public const API_NAMESPACE = '/authenticator';
 
-    public function init(): void
+    public function __construct()
     {
-        add_action('wp', array( $this, 'getCurrentUser' ));
-        add_action('rest_api_init', array( $this, 'registerAuthRoutes' ));
-    }
-
-    /**
-     * Sets up the current user.
-     *
-     * @return WP_User The current user.
-     */
-    public function getCurrentUser(): WP_User
-    {
-        return $this->user = wp_get_current_user();
+        $this->credentialHelper = CredentialHelper::instance();
     }
 
     /**
@@ -64,19 +54,19 @@ class AuthenticationHandler implements AuthenticationInterface
                 PublicKeyCredentialRequestOptions::create(
                     $challenge
                 )->allowCredentials(
-                    ...$this->get_allowed_credentials()
+                    ...$this->getAllowedCredentials()
                 )->setUserVerification(
-                    PublicKeyCredentialRequestOptions::USER_VERIFICATION_REQUIREMENT_REQUIRED
+                    PublicKeyCredentialRequestOptions::USER_VERIFICATION_REQUIREMENT_PREFERRED
                 );
 
             $responseData = array(
                 'message'           => 'Success',
-                'credentialOptions' =>  $publicKeyCredentialRequestOptions, // Your credentials data here
+                'credentialOptions' =>  $publicKeyCredentialRequestOptions,
             );
 
             return new WP_REST_Response($responseData, 200);
         } catch (Exception $e) {
-            throw new RuntimeException($e->getMessage());
+            throw new Exception($e->getMessage());
         }
     }
 
@@ -84,11 +74,11 @@ class AuthenticationHandler implements AuthenticationInterface
      * Retrieves the allowed credentials for a user entity.
      *
      * @return array The array of allowed credentials.
+     * @throws InvalidDataException
      */
     private function getAllowedCredentials(): array
     {
-        $user_entity              = Utilities::getUserEntity($this->getCurrentUser());
-        $registeredAuthenticators = $this->publicKeyCredentialSourceRepository->findAllForUserEntity($user_entity);
+        $registeredAuthenticators = $this->credentialHelper->findAllForUserEntity();
 
         return array_map(
             static function (PublicKeyCredentialSource $credential): PublicKeyCredentialDescriptor {
@@ -105,7 +95,7 @@ class AuthenticationHandler implements AuthenticationInterface
      * @throws WP_Error If the response is invalid.
      * @return WP_REST_Response|WP_Error The REST response or error.
      */
-    public function responseAuthenticator(WP_REST_Request $request): WP_REST_Response|WP_Error
+    public function verifyPublicKeyCredentials(WP_REST_Request $request): WP_REST_Response|WP_Error
     {
         try {
             $authenticator_assertion_response = $this->publicKeyCredential->getResponse();
@@ -133,24 +123,13 @@ class AuthenticationHandler implements AuthenticationInterface
         }
     }
 
-    public function registerAuthRoutes(): void
+    public function loginWithAuthCookie($username): void
     {
-            register_rest_route(
-                WP_PASSKEYS_API_NAMESPACE . '/login',
-                '/start',
-                array(
-                    'methods'  => 'POST',
-                    'callback' => array( $this, 'create_public_key_credential_options' ),
-                )
-            );
-
-            register_rest_route(
-                WP_PASSKEYS_API_NAMESPACE . '/login',
-                '/authenticate',
-                array(
-                    'methods'  => 'POST',
-                    'callback' => array( $this, 'response_authentication' ),
-                )
-            );
+        $user = get_user_by('login', $username);
+        if ($user) {
+            wp_set_current_user($user->ID, $user->user_login);
+            wp_set_auth_cookie($user->ID, true);
+            do_action('wp_login', $user->user_login, $user);
+        }
     }
 }

@@ -1,3 +1,3 @@
-import './auth';
-import './registration';
-import './wploginform';
+import './AuthenticationHandler';
+import './RegistrationHandler';
+import './FormHandler';

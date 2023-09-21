@@ -10,43 +10,35 @@ class SessionHandler
 {
     use SingletonTrait;
 
-    public readonly PublicKeyCredentialCreationOptions $publicKeyCredentialCreationOptions;
-    public function saveSessionCredentialOptions(
-        PublicKeyCredentialCreationOptions $publicKeyCredentialCreationOptions
-    ): void {
-        session_start();
-        $_SESSION['webauthn_credential_options'] = $publicKeyCredentialCreationOptions->jsonSerialize();
+    public function set($key, $value): void
+    {
+        $_SESSION[$key] = $value;
     }
 
-    /**
-     * Retrieves the session credential data.
-     *
-     * @return PublicKeyCredentialCreationOptions|null The credential data, or null if not found.
-     * @throws InvalidDataException
-     */
-
-    public function getSessionCredentialOptions(): ?PublicKeyCredentialCreationOptions
+    public function get($key)
     {
-        session_start();
-        if (isset($_SESSION['webauthn_credential_options'])) {
-            $options = $_SESSION['webauthn_credential_options'];
-            return PublicKeyCredentialCreationOptions::createFromArray($options);
+        return $_SESSION[$key] ?? null;
+    }
+
+    public function has($key): bool
+    {
+        return isset($_SESSION[$key]);
+    }
+
+    public function remove($key): void
+    {
+        unset($_SESSION[$key]);
+    }
+
+    public function start(): void
+    {
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
         }
-        return null;
     }
 
-    /**
-     * Lazy cleanup of expired records in wp_options.
-     *
-     * @return void
-     */
-    public function cleanupExpiredRecords(): void
+    public function destroy(): void
     {
-        global $wpdb;
-        $table_name = $wpdb->prefix . 'webauthn_credential_options';
-
-        $current_time = time();
-
-        $wpdb->query($wpdb->prepare("DELETE FROM $table_name WHERE %d - timestamp > 300", $current_time));
+        session_destroy();
     }
 }

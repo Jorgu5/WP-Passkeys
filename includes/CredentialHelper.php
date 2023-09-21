@@ -12,17 +12,24 @@ namespace WpPasskeys;
 
 use Exception;
 use Webauthn\Exception\InvalidDataException;
+use Webauthn\PublicKeyCredentialCreationOptions;
 use Webauthn\PublicKeyCredentialSource;
 use Webauthn\PublicKeyCredentialSourceRepository;
 use Webauthn\PublicKeyCredentialUserEntity;
 use Webauthn\TrustPath\TrustPath;
 use Symfony\Component\Uid\Uuid;
+use WpPasskeys\Exceptions\CredentialException;
+use WpPasskeys\Traits\SingletonTrait;
 
 /**
  * Credential Helper for WP Pass Keys.
  */
-class CredentialHelper implements PublicKeyCredentialSourceRepository
+class CredentialHelper
 {
+    use SingletonTrait;
+
+    public readonly PublicKeyCredentialCreationOptions $publicKeyCredentialCreationOptions;
+
     /**
      * Finds a PublicKeyCredentialSource by the given credential ID.
      *
@@ -51,27 +58,20 @@ class CredentialHelper implements PublicKeyCredentialSourceRepository
     /**
      * Finds all credential sources for a user entity.
      *
-     * @param PublicKeyCredentialUserEntity $publicKeyCredentialUserEntity The user entity.
-     *
      * @return array The array of credential sources.
      * @throws InvalidDataException
      */
-    public function findAllForUserEntity(PublicKeyCredentialUserEntity $publicKeyCredentialUserEntity): array
+    public function findAllForUserEntity(): array
     {
-        $userId             = $publicKeyCredentialUserEntity->getId();
-        $credentials        = get_user_meta($userId);
-        $credential_sources = array();
+        $userId             = SessionHandler::instance()->get('user_id');
+        $userCredentialsSource        = get_user_meta($userId, 'pk_credential_source', false);
+        $credentialSources = array();
 
-        foreach ($credentials as $credential) {
-            $credential_sources[] = PublicKeyCredentialSource::createFromArray(
-                unserialize(
-                    $credential[0],
-                    array( 'allowed_classes' => __CLASS__ )
-                )
-            );
-        }
+        $credentialSources[] = PublicKeyCredentialSource::createFromArray(
+            $userCredentialsSource[0]
+        );
 
-        return $credential_sources;
+        return $credentialSources;
     }
 
 
@@ -84,9 +84,47 @@ class CredentialHelper implements PublicKeyCredentialSourceRepository
      */
     public function saveCredentialSource(PublicKeyCredentialSource $publicKeyCredentialSource): void
     {
-        $publicKeyCredentialId = $publicKeyCredentialSource->getPublicKeyCredentialId();
-        $metaValue               = serialize($publicKeyCredentialSource->jsonSerialize());
+        $credentials      = $publicKeyCredentialSource->jsonSerialize();
 
-        update_user_meta(get_current_user_id(), $publicKeyCredentialId, $metaValue);
+        $addUser = wp_insert_user(
+            array(
+                'user_login' => SessionHandler::instance()->get('user_login'),
+                'meta_input' => [
+                    'pk_credential_source' => $credentials
+                ]
+            )
+        );
+
+        if (is_wp_error($addUser)) {
+            throw new CredentialException($addUser->get_error_message());
+        }
+    }
+
+    public function saveSessionCredentialOptions(
+        PublicKeyCredentialCreationOptions $publicKeyCredentialCreationOptions
+    ): void {
+        SessionHandler::instance()->start();
+        SessionHandler::instance()->set(
+            'webauthn_credential_options',
+            $publicKeyCredentialCreationOptions->jsonSerialize()
+        );
+    }
+
+    /**
+     * Retrieves the session credential data.
+     *
+     * @return PublicKeyCredentialCreationOptions|null The credential data, or null if not found.
+     * @throws InvalidDataException
+     */
+
+    public function getSessionCredentialOptions(): ?PublicKeyCredentialCreationOptions
+    {
+        $session = SessionHandler::instance();
+        $session->start();
+        if ($session->has('webauthn_credential_options')) {
+            $options = $session->get('webauthn_credential_options');
+            return PublicKeyCredentialCreationOptions::createFromArray($options);
+        }
+        return null;
     }
 }

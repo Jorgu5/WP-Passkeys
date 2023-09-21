@@ -27,8 +27,7 @@ use Webauthn\PublicKeyCredentialCreationOptions;
 use Webauthn\PublicKeyCredentialLoader;
 use Webauthn\PublicKeyCredentialParameters;
 use Webauthn\PublicKeyCredentialSource;
-use WP_User;
-use WpPasskeys\Interfaces\AuthenticationInterface;
+use WpPasskeys\Interfaces\WebAuthnInterface;
 use WpPasskeys\Traits\SingletonTrait;
 use WpPasskeys\utilities as Util;
 use WP_Error;
@@ -38,48 +37,15 @@ use WP_REST_Response;
 /**
  * Registration Handler for WP Pass Keys.
  */
-class RegistrationHandler implements AuthenticationInterface
+class RegistrationHandler implements WebAuthnInterface
 {
-    use SingletonTrait;
-
     public readonly AuthenticatorAttestationResponse $authenticatorAttestationResponse;
     public readonly ?PublicKeyCredentialCreationOptions $publicKeyCredentialCreationOptions;
     public readonly AuthenticatorAttestationResponseValidator $authenticatorAttestationResponseValidator;
     public readonly PublicKeyCredentialLoader $publicKeyCredentialLoader;
     public readonly AttestationObjectLoader $attestationObjectLoader;
     public readonly AttestationStatementSupportManager $attestationStatementSupportManager;
-    public readonly WP_User $user;
-
-    public function init(): void
-    {
-        add_action('rest_api_init', array( $this, 'registerAuthRoutes' ));
-    }
-
-    /**
-     * Register the routes for the API.
-     *
-     * @return void
-     */
-    public function registerAuthRoutes(): void
-    {
-        register_rest_route(
-            WP_PASSKEYS_API_NAMESPACE . '/register',
-            '/start',
-            array(
-                'methods'  => 'GET',
-                'callback' => array( $this, 'createPublicKeyCredentialOptions' ),
-            )
-        );
-
-        register_rest_route(
-            WP_PASSKEYS_API_NAMESPACE . '/register',
-            '/authenticate',
-            array(
-                'methods'  => 'POST',
-                'callback' => array( $this, 'responseAuthenticator' ),
-            )
-        );
-    }
+    public const API_NAMESPACE = '/register';
 
     /**
      * Stores the public key credential source.
@@ -90,10 +56,9 @@ class RegistrationHandler implements AuthenticationInterface
     public function storePublicKeyCredentialSource(PublicKeyCredentialSource $publicKeyCredentialSource): void
     {
         try {
-            $credentialHelper = new CredentialHelper();
-            $credentialHelper->saveCredentialSource($publicKeyCredentialSource);
+            CredentialHelper::instance()->saveCredentialSource($publicKeyCredentialSource);
         } catch (Exception $e) {
-            throw new RuntimeException("Failed to store credential source: {$e->getMessage()}");
+            throw new CredentialException($e->getMessage());
         }
     }
 
@@ -107,10 +72,11 @@ class RegistrationHandler implements AuthenticationInterface
     public function createPublicKeyCredentialOptions(WP_REST_Request $request): WP_REST_Response
     {
         try {
-            $challenge                        = random_bytes(16);
+            $challenge                        = base64_encode(random_bytes(32));
             $algorithmManager                = AlgorithmManager::instance();
             $algorithmManagerKeys           = $algorithmManager->getAlgorithmIdentifiers();
             $publicKeyCredentialParameters = array();
+            $userLogin = SessionHandler::instance()->get('user_login');
 
             foreach ($algorithmManagerKeys as $algorithmNumber) {
                 $publicKeyCredentialParameters[] = new PublicKeyCredentialParameters(
@@ -120,21 +86,21 @@ class RegistrationHandler implements AuthenticationInterface
             }
 
             $this->publicKeyCredentialCreationOptions = PublicKeyCredentialCreationOptions::create(
-                Util::getRpEntity(),
-                Util::getUserEntity(null),
+                Util::createRpEntity(),
+                Util::createUserEntity($userLogin),
                 $challenge,
                 $publicKeyCredentialParameters,
             )->setTimeout(30000)
             ->setAuthenticatorSelection(AuthenticatorSelectionCriteria::create())
             ->setAttestation(PublicKeyCredentialCreationOptions::ATTESTATION_CONVEYANCE_PREFERENCE_NONE);
 
-            SessionHandler::instance()->saveSessionCredentialOptions(
+            CredentialHelper::instance()->saveSessionCredentialOptions(
                 $this->publicKeyCredentialCreationOptions
             );
 
             return new WP_REST_Response($this->publicKeyCredentialCreationOptions, 200);
         } catch (Exception $e) {
-            throw new RuntimeException($e->getMessage());
+            throw new ($e->getMessage());
         }
     }
 
@@ -145,7 +111,7 @@ class RegistrationHandler implements AuthenticationInterface
      *
      * @return WP_Error|WP_REST_Response a REST response object with the result.
      */
-    public function responseAuthenticator(
+    public function verifyPublicKeyCredentials(
         WP_REST_Request $request
     ): WP_Error|WP_REST_Response {
         try {
@@ -156,29 +122,33 @@ class RegistrationHandler implements AuthenticationInterface
             $this->attestationObjectLoader    = new AttestationObjectLoader($this->attestationStatementSupportManager);
             $this->publicKeyCredentialLoader = new PublicKeyCredentialLoader($this->attestationObjectLoader);
             $publicKeyCredential              = $this->publicKeyCredentialLoader->load($data);
-            $authenticator_attestation_response = $publicKeyCredential->getResponse();
-            if (! $authenticator_attestation_response instanceof AuthenticatorAttestationResponse) {
-                return new WP_Error(
-                    'Invalid_response',
-                    'AuthenticatorAttestationResponse expected',
-                    array( 'status' => 400 )
-                );
+            $authenticatorAttestationResponse = $publicKeyCredential->getResponse();
+            if (! $authenticatorAttestationResponse instanceof AuthenticatorAttestationResponse) {
+                return new WP_Error('400', 'Invalid AuthenticatorAttestationResponse');
             }
-            $this->authenticatorAttestationResponse = $authenticator_attestation_response;
+            $this->authenticatorAttestationResponse = $authenticatorAttestationResponse;
             $this->storePublicKeyCredentialSource(
-                $this->getValidatedCredentials(
+                $this->getPublicKeyCredentials(
                     $this->authenticatorAttestationResponse,
                     $this->attestationStatementSupportManager,
                     ExtensionOutputCheckerHandler::create(),
                 )
             );
 
-            return new WP_REST_Response('Successfully registered', 200);
-        } catch (JsonException | Exception $e) {
-            return new WP_Error('Invalid_response', $e->getMessage(), array( 'status' => 400 ));
+            $response = new WP_REST_Response([
+                'status' => 'Verified',
+                'statusText' => 'Your account has been created. You are being redirect now to dashboard...',
+                'redirectUrl' => get_admin_url(),
+            ], 200);
+        } catch (JsonException $e) {
+            $response = new WP_Error(400, $e->getMessage());
+        } catch (Exception $e) {
+            $response = new WP_Error(500, $e->getMessage());
         } catch (Throwable $e) {
-            return new WP_Error('Invalid_response', $e->getMessage(), array( 'status' => 400 ));
+            $response = new WP_Error(500, $e->getMessage());
         }
+
+        return $response;
     }
 
     /**
@@ -187,7 +157,7 @@ class RegistrationHandler implements AuthenticationInterface
      * @return PublicKeyCredentialSource The validated credentials.
      * @throws Throwable
      */
-    private function getValidatedCredentials(
+    private function getPublicKeyCredentials(
         AuthenticatorAttestationResponse $authenticatorAttestationResponse,
         AttestationStatementSupportManager $supportManager,
         ExtensionOutputCheckerHandler $checkerHandler
@@ -200,13 +170,39 @@ class RegistrationHandler implements AuthenticationInterface
             null
         );
 
-        $this->publicKeyCredentialCreationOptions = SessionHandler::instance()->getSessionCredentialOptions();
+        $this->publicKeyCredentialCreationOptions = CredentialHelper::instance()->getSessionCredentialOptions();
 
         return $this->authenticatorAttestationResponseValidator->check(
             $authenticatorAttestationResponse,
             $this->publicKeyCredentialCreationOptions,
             Util::getHostname(),
             ['localhost']
+        );
+    }
+
+    public function setUserLogin(WP_REST_Request $request): WP_Error | WP_REST_Response
+    {
+        if (empty($request->get_params())) {
+            return new WP_Error(400, 'No parameters have been passed');
+        }
+        $userLogin = $request->get_param('name');
+
+        $user = get_user_by('login', $userLogin);
+
+        if ($user) {
+            SessionHandler::instance()->set('user_id', $user->ID);
+            return new WP_REST_Response([
+                'isExistingUser' => true,
+            ], 200);
+        }
+
+        SessionHandler::instance()->set('user_login', sanitize_text_field($userLogin));
+
+        return new WP_REST_Response(
+            [
+                'isExistingUser' => false
+            ],
+            200
         );
     }
 }

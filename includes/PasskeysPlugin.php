@@ -24,8 +24,12 @@ class PasskeysPlugin
     private function initHooks(): void
     {
         EnqueueAssets::instance()->init();
-        AuthenticationHandler::instance()->init();
-        RegistrationHandler::instance()->init();
+        // Register the REST API routes.
+        $restApiHandler = new RestApiHandler(
+            new AuthenticationHandler(),
+            new RegistrationHandler(),
+        );
+        $restApiHandler->init();
     }
 
     /**
