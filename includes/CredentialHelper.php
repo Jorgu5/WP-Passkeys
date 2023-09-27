@@ -18,13 +18,14 @@ use Webauthn\PublicKeyCredentialSourceRepository;
 use Webauthn\PublicKeyCredentialUserEntity;
 use Webauthn\TrustPath\TrustPath;
 use Symfony\Component\Uid\Uuid;
+use WP_User;
 use WpPasskeys\Exceptions\CredentialException;
 use WpPasskeys\Traits\SingletonTrait;
 
 /**
  * Credential Helper for WP Pass Keys.
  */
-class CredentialHelper
+class CredentialHelper implements PublicKeyCredentialSourceRepository
 {
     use SingletonTrait;
 
@@ -37,61 +38,84 @@ class CredentialHelper
      *
      * @return PublicKeyCredentialSource|null The found PublicKeyCredentialSource, or null if not found.
      * @throws InvalidDataException
+     * @throws \JsonException
+     * @throws CredentialException
      */
     public function findOneByCredentialId(string $publicKeyCredentialId): ?PublicKeyCredentialSource
     {
-        $userCredentialId = get_user_meta(get_current_user_id(), $publicKeyCredentialId, true);
-
-        if ($userCredentialId) {
-            return PublicKeyCredentialSource::createFromArray(
-                unserialize(
-                    $userCredentialId,
-                    array( 'allowed_classes' => __CLASS__ )
-                )
-            );
-        }
-
-        return null;
+        $credentialSource = $this->findPkSourceByCredentialId($publicKeyCredentialId);
+        return PublicKeyCredentialSource::createFromArray(
+            json_decode($credentialSource, true, 512, JSON_THROW_ON_ERROR)
+        );
     }
 
 
     /**
-     * Finds all credential sources for a user entity.
+     * Finds all credential sources for a given WordPress username.
      *
-     * @return array The array of credential sources.
+     * @param PublicKeyCredentialUserEntity $publicKeyCredentialUserEntity
+     *
+     * @return array The array of PublicKeyCredentialDescriptor objects.
      * @throws InvalidDataException
+     * @throws \JsonException
+     * @throws CredentialException
      */
-    public function findAllForUserEntity(): array
+    public function findAllForUserEntity(PublicKeyCredentialUserEntity $publicKeyCredentialUserEntity): array
     {
-        $userId             = SessionHandler::instance()->get('user_id');
-        $userCredentialsSource        = get_user_meta($userId, 'pk_credential_source', false);
-        $credentialSources = array();
+        $credentialDescriptorsStore = [];
 
-        $credentialSources[] = PublicKeyCredentialSource::createFromArray(
-            $userCredentialsSource[0]
-        );
+        $username = $publicKeyCredentialUserEntity->name;
 
-        return $credentialSources;
+        $credentialSource = $this->getUserPublicKeySources($username);
+
+        $publicKeySource = PublicKeyCredentialSource::createFromArray($credentialSource);
+
+        $credentialDescriptorsStore[] = $publicKeySource->getPublicKeyCredentialDescriptor();
+
+        return $credentialDescriptorsStore;
     }
 
 
     /**
      * Saves a credential source to the database.
      *
-     * @param  PublicKeyCredentialSource $publicKeyCredentialSource The credential source to save.
-     * @throws Exception If there is an error saving the credential source.
+     * @param PublicKeyCredentialSource $publicKeyCredentialSource The credential source to save.
+     *
      * @return void
+     * @throws Exception If there is an error saving the credential source.
      */
     public function saveCredentialSource(PublicKeyCredentialSource $publicKeyCredentialSource): void
     {
-        $credentials      = $publicKeyCredentialSource->jsonSerialize();
+        global $wpdb;
 
+        $safeEncodedPkId = Utilities::safeEncode($publicKeyCredentialSource->publicKeyCredentialId);
+
+        if ($this->findPkSourceByCredentialId($safeEncodedPkId)) {
+            return;
+        }
+        // Insert only the credential source into the custom table wp_pk_credential_sources
+        $wpdb->insert('wp_pk_credential_sources', [
+            'pk_credential_id' => $safeEncodedPkId,
+            'credential_source' => json_encode($publicKeyCredentialSource, JSON_THROW_ON_ERROR)
+        ], ['%s']);
+
+        // Check if the insert was successful, throw exception otherwise
+        if (!$wpdb->insert_id) {
+            throw new CredentialException('Failed to save credential source.');
+        }
+    }
+
+    /**
+     * @throws CredentialException
+     */
+    public function createUserWithPkCredentialId(string $publicKeyCredentialId): void
+    {
         $addUser = wp_insert_user(
             array(
                 'user_login' => SessionHandler::instance()->get('user_login'),
                 'meta_input' => [
-                    'pk_credential_source' => $credentials
-                ]
+                    'pk_credential_id' => Utilities::safeEncode($publicKeyCredentialId)
+                ],
             )
         );
 
@@ -126,5 +150,56 @@ class CredentialHelper
             return PublicKeyCredentialCreationOptions::createFromArray($options);
         }
         return null;
+    }
+
+    /**
+     * Retrieves public key credential sources for a specific user.
+     *
+     * @param string $username
+     *
+     * @return array An array of credential sources.
+     * @throws \JsonException
+     * @throws CredentialException
+     */
+    private function getUserPublicKeySources(string $username): array
+    {
+        global $wpdb;
+
+        $user = get_user_by('login', $username);
+
+        if (!$user) {
+            throw new CredentialException('User not found.');
+        }
+
+        $pkCredentialId = get_user_meta($user->ID, 'pk_credential_id', true);
+
+        if (!$pkCredentialId) {
+            throw new CredentialException('No credential ID found for user.');
+        }
+
+        $credentialSource = $this->findPkSourceByCredentialId($pkCredentialId);
+
+        return json_decode($credentialSource, true, 512, JSON_THROW_ON_ERROR);
+    }
+
+    /**
+     * @throws CredentialException
+     */
+    private function findPkSourceByCredentialId(string $pkCredentialId): string | null
+    {
+        global $wpdb;
+
+        $credentialSource = $wpdb->get_var(
+            $wpdb->prepare(
+                "SELECT credential_source FROM wp_pk_credential_sources WHERE pk_credential_id = %s",
+                $pkCredentialId
+            )
+        );
+
+        if (empty($credentialSource)) {
+            throw new CredentialException('No credential source found for user.');
+        }
+
+        return $credentialSource;
     }
 }
