@@ -182,10 +182,7 @@ class CredentialHelper implements PublicKeyCredentialSourceRepository
         return json_decode($credentialSource, true, 512, JSON_THROW_ON_ERROR);
     }
 
-    /**
-     * @throws CredentialException
-     */
-    private function findPkSourceByCredentialId(string $pkCredentialId): string | null
+    private function findPkSourceByCredentialId(string $pkCredentialId): string
     {
         global $wpdb;
 
@@ -197,7 +194,7 @@ class CredentialHelper implements PublicKeyCredentialSourceRepository
         );
 
         if (empty($credentialSource)) {
-            throw new CredentialException('No credential source found for user.');
+            return '';
         }
 
         return $credentialSource;

@@ -92,9 +92,18 @@ class RegistrationHandler implements WebAuthnInterface
                 Util::createUserEntity($userLogin),
                 $challenge,
                 $publicKeyCredentialParameters,
-            )->setTimeout(30000)
-            ->setAuthenticatorSelection(AuthenticatorSelectionCriteria::create())
-            ->setAttestation(PublicKeyCredentialCreationOptions::ATTESTATION_CONVEYANCE_PREFERENCE_NONE);
+            );
+
+            $this->publicKeyCredentialCreationOptions->timeout = 30000;
+            $this->publicKeyCredentialCreationOptions->authenticatorSelection = AuthenticatorSelectionCriteria::create(
+                AuthenticatorSelectionCriteria::AUTHENTICATOR_ATTACHMENT_PLATFORM,
+                AuthenticatorSelectionCriteria::USER_VERIFICATION_REQUIREMENT_REQUIRED,
+                AuthenticatorSelectionCriteria::RESIDENT_KEY_REQUIREMENT_REQUIRED,
+                true
+            );
+
+            $this->publicKeyCredentialCreationOptions->attestation =
+                PublicKeyCredentialCreationOptions::ATTESTATION_CONVEYANCE_PREFERENCE_NONE;
 
             CredentialHelper::instance()->saveSessionCredentialOptions(
                 $this->publicKeyCredentialCreationOptions
@@ -124,11 +133,12 @@ class RegistrationHandler implements WebAuthnInterface
             $this->attestationObjectLoader    = new AttestationObjectLoader($this->attestationStatementSupportManager);
             $this->publicKeyCredentialLoader = new PublicKeyCredentialLoader($this->attestationObjectLoader);
             $publicKeyCredential              = $this->publicKeyCredentialLoader->load($data);
-            $authenticatorAttestationResponse = $publicKeyCredential->getResponse();
+            $authenticatorAttestationResponse = $publicKeyCredential->response;
             if (! $authenticatorAttestationResponse instanceof AuthenticatorAttestationResponse) {
                 return new WP_Error('400', 'Invalid AuthenticatorAttestationResponse');
             }
             $this->authenticatorAttestationResponse = $authenticatorAttestationResponse;
+
             $this->storePublicKeyCredentialSource(
                 $this->getPublicKeyCredentials(
                     $this->authenticatorAttestationResponse,

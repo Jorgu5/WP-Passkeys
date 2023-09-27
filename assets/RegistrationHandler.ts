@@ -46,6 +46,7 @@ export class RegistrationHandler {
 
             try {
                 verificationJSON = await this.verify(attResp);
+                console.log(verificationJSON);
                 if (verificationJSON.redirectUrl) {
                     window.location.href = verificationJSON.redirectUrl;
                 }

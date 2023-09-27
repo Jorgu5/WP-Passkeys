@@ -63,15 +63,15 @@ class AuthenticationHandler implements WebAuthnInterface
     public function createPublicKeyCredentialOptions(WP_REST_Request $request): WP_REST_Response
     {
         try {
-            $challenge                             = random_bytes(32);
-            $publicKeyCredentialRequestOptions =
-                PublicKeyCredentialRequestOptions::create(
+            $challenge                         = random_bytes(32);
+            $publicKeyCredentialRequestOptions = PublicKeyCredentialRequestOptions
+                ::create(
                     $challenge
-                )->allowCredentials(
-                    ...$this->getAllowedCredentials()
-                )->setUserVerification(
-                    PublicKeyCredentialRequestOptions::USER_VERIFICATION_REQUIREMENT_REQUIRED
                 );
+            $publicKeyCredentialRequestOptions->allowCredentials = []; // ... $this->getAllowedCredentials()
+            $publicKeyCredentialRequestOptions->userVerification =
+                PublicKeyCredentialRequestOptions::USER_VERIFICATION_REQUIREMENT_REQUIRED;
+
 
                 SessionHandler::instance()->set('pk_credential_request_options', $publicKeyCredentialRequestOptions);
 
@@ -129,7 +129,7 @@ class AuthenticationHandler implements WebAuthnInterface
                 $authenticatorAssertionResponse,
                 SessionHandler::instance()->get('pk_credential_request_options'),
                 Utilities::getHostname(),
-                $authenticatorAssertionResponse->getUserHandle(),
+                $authenticatorAssertionResponse->userHandle,
                 ['localhost']
             );
 
