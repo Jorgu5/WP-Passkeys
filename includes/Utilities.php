@@ -88,13 +88,15 @@ class Utilities
     }
 
     /**
-     * Generate login from display name
+     * Encodes the given data into a URL-safe base64 string.
      *
-     * @param $displayName
-     *
-     * @return string
-     * @throws Exception
+     * @param mixed $data The data to be encoded.
+     * @return string The URL-safe base64 encoded string.
      */
+    public static function safeEncode(mixed $data): string
+    {
+        return rtrim(strtr(base64_encode($data), '+/', '-_'), '=');
+    }
 
     /* public static function generateLoginFromDisplayName($displayName): string
     {
