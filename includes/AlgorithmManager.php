@@ -12,6 +12,7 @@ declare(strict_types=1);
 
 namespace WpPasskeys;
 
+use Cose\Algorithm\Algorithm;
 use Cose\Algorithm\Manager;
 use Cose\Algorithm\Signature\ECDSA\ES256;
 use Cose\Algorithm\Signature\ECDSA\ES256K;
@@ -25,6 +26,7 @@ use Cose\Algorithm\Signature\RSA\PS512;
 use Cose\Algorithm\Signature\RSA\RS256;
 use Cose\Algorithm\Signature\RSA\RS384;
 use Cose\Algorithm\Signature\RSA\RS512;
+use InvalidArgumentException;
 use WpPasskeys\Traits\SingletonTrait;
 
 /**
@@ -35,18 +37,16 @@ class AlgorithmManager
     use SingletonTrait;
 
     /**
-     * The algorithm manager instance.
-     *
-     * @var Manager|null
+     * @var array
      */
-    private ?Manager $algorithmManager;
+    private array $algorithms = [];
 
     /**
      * Constructor for the class.
      */
-    public function init(): void
+    public function init(): Manager
     {
-        $this->algorithmManager = Manager::create()->add(
+        return Manager::create()->add(
             ES256::create(),
             ES256K::create(),
             ES384::create(),
@@ -83,5 +83,30 @@ class AlgorithmManager
             Ed256::identifier()  => -8,  // EdDSA w/ Ed25519
             Ed512::identifier()  => -9,   // EdDSA w/ Ed448
         );
+    }
+
+    /**
+     * @param string $identifier
+     * @return Algorithm
+     * @throws InvalidArgumentException
+     */
+    public function get(string $identifier): Algorithm
+    {
+        if (!$this->has($identifier)) {
+            throw new InvalidArgumentException('Unsupported algorithm');
+        }
+
+        // Access the algorithms using the $identifier as a key
+        return $this->algorithms[$identifier];
+    }
+
+    /**
+     * @param string $identifier
+     * @return bool
+     */
+    public function has(string $identifier): bool
+    {
+        // Check if the algorithm exists in the array
+        return array_key_exists($identifier, $this->algorithms);
     }
 }
