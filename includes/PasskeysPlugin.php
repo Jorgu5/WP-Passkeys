@@ -11,6 +11,8 @@ namespace WpPasskeys;
 
 use WpPasskeys\Traits\SingletonTrait;
 
+require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
+
 /**
  * Main plugin class.
  */
@@ -46,6 +48,25 @@ class PasskeysPlugin
     public function run(): void
     {
         $this->initHooks();
+        $this->createCredentialsTable();
         self::activate();
+    }
+
+    public function createCredentialsTable(): void
+    {
+        global $wpdb;
+
+        $charset_collate = $wpdb->get_charset_collate();
+        $table_name = $wpdb->prefix . 'pk_credential_sources';
+
+        $sql = "CREATE TABLE $table_name (
+            id mediumint(9) NOT NULL AUTO_INCREMENT,
+            pk_credential_id varchar(255) NOT NULL,
+            credential_source longtext NOT NULL,
+            PRIMARY KEY (id),
+            UNIQUE KEY pk_credential_id (pk_credential_id)
+        ) $charset_collate;";
+
+        dbDelta($sql);
     }
 }
