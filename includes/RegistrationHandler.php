@@ -184,27 +184,20 @@ class RegistrationHandler implements WebAuthnInterface
 
     public function setUserLogin(WP_REST_Request $request): WP_Error | WP_REST_Response
     {
-        if (empty($request->get_params())) {
-            return new WP_Error(400, 'No parameters have been passed');
-        }
         $userLogin = $request->get_param('name');
-
-        $user = get_user_by('login', $userLogin);
-
-        if ($user) {
-            SessionHandler::instance()->set('user_id', $user->ID);
-            return new WP_REST_Response([
-                'isExistingUser' => true,
-            ], 200);
+        if (empty($userLogin)) {
+            return new WP_Error(400, 'No name parameter has been passed');
         }
+        $sanitizedUserLogin = sanitize_text_field($userLogin);
 
-        SessionHandler::instance()->set('user_login', sanitize_text_field($userLogin));
+        SessionHandler::instance()->set('user_login', $sanitizedUserLogin);
 
-        return new WP_REST_Response(
-            [
-                'isExistingUser' => false
-            ],
-            200
-        );
+        $user = get_user_by('login', $sanitizedUserLogin);
+
+        $response = [
+            'isExistingUser' => (bool)$user
+        ];
+
+        return new WP_REST_Response($response, 200);
     }
 }
