@@ -8,37 +8,51 @@
 
 namespace WpPasskeys;
 
+use Cose\Algorithm\Manager;
 use Exception;
 use JsonException;
-use RuntimeException;
+use Webauthn\AttestationStatement\AttestationObjectLoader;
+use Webauthn\AttestationStatement\AttestationStatementSupportManager;
+use Webauthn\AttestationStatement\NoneAttestationStatementSupport;
+use Webauthn\AuthenticationExtensions\ExtensionOutputCheckerHandler;
 use Webauthn\AuthenticatorAssertionResponse;
 use Webauthn\AuthenticatorAssertionResponseValidator;
 use Webauthn\Exception\InvalidDataException;
 use Webauthn\PublicKeyCredential;
-use Webauthn\PublicKeyCredentialDescriptor;
+use Webauthn\PublicKeyCredentialLoader;
 use Webauthn\PublicKeyCredentialRequestOptions;
-use Webauthn\PublicKeyCredentialSource;
-use Webauthn\PublicKeyCredentialSourceRepository;
+use Webauthn\PublicKeyCredentialUserEntity;
 use WP_Error;
 use WP_REST_Request;
 use WP_REST_Response;
 use WP_User;
 use WpPasskeys\Exceptions\CredentialException;
 use WpPasskeys\Interfaces\WebAuthnInterface;
-use WpPasskeys\Traits\SingletonTrait;
-use WpPasskeys\utilities;
 
 class AuthenticationHandler implements WebAuthnInterface
 {
     public readonly CredentialHelper $credentialHelper;
     public readonly PublicKeyCredential $publicKeyCredential;
+    public readonly PublicKeyCredentialLoader $publicKeyCredentialLoader;
     public readonly AuthenticatorAssertionResponseValidator $authenticatorAssertionResponseValidator;
+    public readonly AlgorithmManager $algorithmManager;
     public readonly WP_User $user;
     public const API_NAMESPACE = '/authenticator';
 
     public function __construct()
     {
+        $this->publicKeyCredentialLoader = new PublicKeyCredentialLoader(
+            AttestationObjectLoader::create(
+                AttestationStatementSupportManager::create()
+            )
+        );
         $this->credentialHelper = CredentialHelper::instance();
+        $this->authenticatorAssertionResponseValidator = new AuthenticatorAssertionResponseValidator(
+            $this->credentialHelper,
+            null,
+            ExtensionOutputCheckerHandler::create(),
+            null,
+        );
     }
 
     /**
@@ -56,17 +70,14 @@ class AuthenticationHandler implements WebAuthnInterface
                 )->allowCredentials(
                     ...$this->getAllowedCredentials()
                 )->setUserVerification(
-                    PublicKeyCredentialRequestOptions::USER_VERIFICATION_REQUIREMENT_PREFERRED
+                    PublicKeyCredentialRequestOptions::USER_VERIFICATION_REQUIREMENT_REQUIRED
                 );
 
-            $responseData = array(
-                'message'           => 'Success',
-                'credentialOptions' =>  $publicKeyCredentialRequestOptions,
-            );
+                SessionHandler::instance()->set('pk_credential_request_options', $publicKeyCredentialRequestOptions);
 
-            return new WP_REST_Response($responseData, 200);
+            return new WP_REST_Response($publicKeyCredentialRequestOptions, 200);
         } catch (Exception $e) {
-            throw new Exception($e->getMessage());
+            return new WP_REST_Response($e->getMessage(), 400);
         }
     }
 
@@ -75,17 +86,16 @@ class AuthenticationHandler implements WebAuthnInterface
      *
      * @return array The array of allowed credentials.
      * @throws InvalidDataException
+     * @throws JsonException
+     * @throws CredentialException
      */
     private function getAllowedCredentials(): array
     {
-        $registeredAuthenticators = $this->credentialHelper->findAllForUserEntity();
-
-        return array_map(
-            static function (PublicKeyCredentialSource $credential): PublicKeyCredentialDescriptor {
-                return $credential->getPublicKeyCredentialDescriptor();
-            },
-            $registeredAuthenticators
-        );
+        return $this
+            ->credentialHelper
+            ->findAllForUserEntity(Utilities::createUserEntity(
+                SessionHandler::instance()->get('user_login')
+            ));
     }
 
     /**
@@ -98,8 +108,9 @@ class AuthenticationHandler implements WebAuthnInterface
     public function verifyPublicKeyCredentials(WP_REST_Request $request): WP_REST_Response|WP_Error
     {
         try {
-            $authenticator_assertion_response = $this->publicKeyCredential->getResponse();
-            if (! $authenticator_assertion_response instanceof AuthenticatorAssertionResponse) {
+            $this->publicKeyCredential = $this->publicKeyCredentialLoader->load($request->get_body());
+            $authenticatorAssertionResponse = $this->publicKeyCredential->getResponse();
+            if (! $authenticatorAssertionResponse instanceof AuthenticatorAssertionResponse) {
                 return new WP_Error(
                     'Invalid_response',
                     'AuthenticatorAssertionResponse expected',
@@ -107,20 +118,35 @@ class AuthenticationHandler implements WebAuthnInterface
                 );
             }
 
-            $this->authenticatorAssertionResponseValidator->check(
-                $this->publicKeyCredential->getRawId(),
-                $authenticator_assertion_response,
-                get_transient('public_key_credential_request_options_' . $this->getCurrentUser()->ID),
-                get_site_url(),
-                $authenticator_assertion_response->getUserHandle(),
+            $this->authenticatorAssertionResponseValidator::create(
+                $this->credentialHelper,
+                null,
+                ExtensionOutputCheckerHandler::create(),
+                AlgorithmManager::instance()->init(),
+                null,
+            )->check(
+                $request->get_param('rawId'),
+                $authenticatorAssertionResponse,
+                SessionHandler::instance()->get('pk_credential_request_options'),
+                Utilities::getHostname(),
+                $authenticatorAssertionResponse->getUserHandle(),
+                ['localhost']
             );
 
-            return new WP_REST_Response(array( 'message' => 'Success' ), 200);
+            $this->loginWithAuthCookie(SessionHandler::instance()->get('user_login'));
+
+            $response = new WP_REST_Response(array(
+                'status' => 'Verified',
+                'statusText' => 'Successfully verified the credential.',
+                'redirectUrl' => get_admin_url(),
+            ), 200);
         } catch (JsonException | Exception $e) {
-            return new WP_Error('Invalid_response', $e->getMessage(), array( 'status' => 400 ));
+            $response = new WP_Error('Invalid_response', $e->getMessage(), array( 'status' => 400 ));
         } catch (\Throwable $e) {
-            return new WP_Error('Invalid_response', $e->getMessage(), array( 'status' => 400 ));
+            $response = new WP_Error('Invalid_response', $e->getMessage(), array( 'status' => 400 ));
         }
+
+        return $response;
     }
 
     public function loginWithAuthCookie($username): void
