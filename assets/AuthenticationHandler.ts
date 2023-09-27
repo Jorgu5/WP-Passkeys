@@ -1,5 +1,5 @@
-import { AuthenticationResponseJSON } from "@simplewebauthn/typescript-types";
-import { startAuthentication } from "@simplewebauthn/browser";
+import {AuthenticationResponseJSON, PublicKeyCredentialRequestOptionsJSON} from "@simplewebauthn/typescript-types";
+import { startAuthentication, browserSupportsWebAuthn, browserSupportsWebAuthnAutofill, platformAuthenticatorIsAvailable } from "@simplewebauthn/browser";
 import { AuthenticatorInterface } from "./AuthenticatorInterface";
 import { NotifyFunctionType } from "./AuthenticatorInterface";
 
@@ -41,9 +41,9 @@ export class AuthenticationHandler implements AuthenticatorInterface {
             const authOptions = await this.generateOptions();
             const authResp: AuthenticationResponseJSON = await startAuthentication(authOptions);
             let verificationJSON: { status?: string, statusText?: string, redirectUrl?: string } = {};
-
             try {
                 verificationJSON = await this.verify(authResp);
+                console.log(verificationJSON);
                 if (verificationJSON.redirectUrl) {
                     window.location.href = verificationJSON.redirectUrl;
                 }
@@ -51,7 +51,7 @@ export class AuthenticationHandler implements AuthenticatorInterface {
                 console.error("Error in authentication verification:", error);
             }
 
-            const message = verificationJSON?.status === 'verified'
+            const message = verificationJSON?.status === 'Verified'
                 ? 'Authentication successful'
                 : 'Authentication failed';
 

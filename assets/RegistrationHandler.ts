@@ -53,7 +53,7 @@ export class RegistrationHandler {
                 console.error("Error in registration verification:", error);
             }
 
-            const message = verificationJSON?.status === 'verified'
+            const message = verificationJSON?.status === 'Verified'
                 ? 'Registration successful'
                 : 'Registration failed';
 

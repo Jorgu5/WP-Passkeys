@@ -95,7 +95,6 @@ export class FormHandler {
             console.error("An error occurred during form submission:", error);
         }
     }
-
 }
 
 const formHandler = new FormHandler();
