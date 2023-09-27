@@ -56,7 +56,9 @@ class RegistrationHandler implements WebAuthnInterface
     public function storePublicKeyCredentialSource(PublicKeyCredentialSource $publicKeyCredentialSource): void
     {
         try {
-            CredentialHelper::instance()->saveCredentialSource($publicKeyCredentialSource);
+            $credentialHelper = CredentialHelper::instance();
+            $credentialHelper->createUserWithPkCredentialId($publicKeyCredentialSource->publicKeyCredentialId);
+            $credentialHelper->saveCredentialSource($publicKeyCredentialSource);
         } catch (Exception $e) {
             throw new CredentialException($e->getMessage());
         }
