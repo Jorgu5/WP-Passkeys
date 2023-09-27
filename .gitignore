@@ -7,3 +7,8 @@ wp/
 dist/
 package.json
 yarn-error.log
+certs/
+bin/create-cert.sh
+.phpunit.cache
+apache/
+qodana.yaml
