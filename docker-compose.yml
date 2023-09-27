@@ -35,8 +35,10 @@ services:
     volumes:
       - ./wp:/var/www/html
       - ./:/var/www/html/wp-content/plugins/wp-passkeys
+      - ./certs:/etc/apache2/ssl
     ports:
       - "8080:80"
+      - "443:443"
     depends_on:
       - db
 # Make network name pretty

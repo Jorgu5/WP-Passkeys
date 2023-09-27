@@ -3,6 +3,10 @@ FROM wordpress:php8.1-apache
 
 ARG PLUGIN_NAME=wp-passkeys
 
+# Install Vim
+RUN apt-get update \
+    && apt-get install -y vim
+
 # Setup the OS
 RUN apt-get -qq update ; apt-get -y install unzip curl sudo subversion mariadb-client libgmp-dev \
         && pecl install xdebug \
@@ -26,6 +30,12 @@ RUN php -r "copy('https://getcomposer.org/installer', 'composer-setup.php');" \
         && echo "su www-data -c \"/usr/local/bin/composer.phar --working-dir=/var/www/html/wp-content/plugins/${PLUGIN_NAME} \$*\"" >> /usr/local/bin/composer \
         && chmod ugo+x /usr/local/bin/composer \
         && echo "*** composer command installed"
+
+RUN a2enmod ssl && a2enmod rewrite
+RUN mkdir -p /etc/apache2/ssl
+
+COPY ./certs /etc/apache2/ssl/
+COPY ./apache/000-default.conf /etc/apache2/sites-available/000-default.conf
 
 # Create testing environment
 COPY --chmod=755 bin/install-wp-tests.sh /usr/local/bin/
