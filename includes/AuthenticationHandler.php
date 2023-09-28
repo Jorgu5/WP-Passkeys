@@ -133,7 +133,12 @@ class AuthenticationHandler implements WebAuthnInterface
                 ['localhost']
             );
 
-            $this->loginWithAuthCookie(SessionHandler::instance()->get('user_login'));
+            if ($request->has_param('id')) {
+                $userId = $this->credentialHelper->getUserByCredentialId($request->get_param('id'));
+                Utilities::setAuthCookie(null, $userId);
+            } else {
+                Utilities::setAuthCookie(SessionHandler::instance()->get('user_login'));
+            }
 
             $response = new WP_REST_Response(array(
                 'status' => 'Verified',
