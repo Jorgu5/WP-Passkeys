@@ -43,7 +43,19 @@ class CredentialHelper implements PublicKeyCredentialSourceRepository
      */
     public function findOneByCredentialId(string $publicKeyCredentialId): ?PublicKeyCredentialSource
     {
-        $credentialSource = $this->findPkSourceByCredentialId($publicKeyCredentialId);
+        global $wpdb;
+
+        $credentialSource = $wpdb->get_var(
+            $wpdb->prepare(
+                "SELECT credential_source FROM wp_pk_credential_sources WHERE pk_credential_id = %s",
+                $publicKeyCredentialId
+            )
+        );
+
+        if (empty($credentialSource)) {
+            return null;
+        }
+
         return PublicKeyCredentialSource::createFromArray(
             json_decode($credentialSource, true, 512, JSON_THROW_ON_ERROR)
         );
