@@ -117,4 +117,33 @@ class Utilities
 
         return $generatedLogin;
     }*/
+
+    public static function setAuthCookie(string $username = null, int $userId = null): void
+    {
+        $user = null;
+
+        if ($userId) {
+            $user = get_user_by('id', $userId);
+            if ($user) {
+                self::setUserAndCookie($user);
+            }
+        }
+
+        if ($username) {
+            $user = get_user_by('login', $username);
+            if ($user) {
+                self::setUserAndCookie($user);
+            }
+        }
+
+        if ($user) {
+            do_action('wp_login', $user->user_login, $user);
+        }
+    }
+
+    private static function setUserAndCookie($user): void
+    {
+        wp_set_current_user($user->ID, $user->user_login);
+        wp_set_auth_cookie($user->ID, true);
+    }
 }

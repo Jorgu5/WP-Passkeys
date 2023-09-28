@@ -148,14 +148,4 @@ class AuthenticationHandler implements WebAuthnInterface
 
         return $response;
     }
-
-    public function loginWithAuthCookie($username): void
-    {
-        $user = get_user_by('login', $username);
-        if ($user) {
-            wp_set_current_user($user->ID, $user->user_login);
-            wp_set_auth_cookie($user->ID, true);
-            do_action('wp_login', $user->user_login, $user);
-        }
-    }
 }
