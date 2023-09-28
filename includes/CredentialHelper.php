@@ -102,7 +102,7 @@ class CredentialHelper implements PublicKeyCredentialSourceRepository
 
         $safeEncodedPkId = Utilities::safeEncode($publicKeyCredentialSource->publicKeyCredentialId);
 
-        if ($this->findPkSourceByCredentialId($safeEncodedPkId)) {
+        if ($this->findOneByCredentialId($safeEncodedPkId)) {
             return;
         }
         // Insert only the credential source into the custom table wp_pk_credential_sources
@@ -172,6 +172,7 @@ class CredentialHelper implements PublicKeyCredentialSourceRepository
      * @return array An array of credential sources.
      * @throws \JsonException
      * @throws CredentialException
+     * @throws InvalidDataException
      */
     private function getUserPublicKeySources(string $username): array
     {
@@ -189,26 +190,29 @@ class CredentialHelper implements PublicKeyCredentialSourceRepository
             throw new CredentialException('No credential ID found for user.');
         }
 
-        $credentialSource = $this->findPkSourceByCredentialId($pkCredentialId);
+        $credentialSource = $this->findOneByCredentialId($pkCredentialId);
 
         return json_decode($credentialSource, true, 512, JSON_THROW_ON_ERROR);
     }
 
-    private function findPkSourceByCredentialId(string $pkCredentialId): string
+    /**
+     * @throws CredentialException
+     */
+    public function getUserByCredentialId(string $pkCredentialId): int
     {
         global $wpdb;
 
-        $credentialSource = $wpdb->get_var(
+        $user = $wpdb->get_var(
             $wpdb->prepare(
-                "SELECT credential_source FROM wp_pk_credential_sources WHERE pk_credential_id = %s",
+                "SELECT user_id FROM wp_usermeta WHERE meta_key = 'pk_credential_id' AND meta_value = %s",
                 $pkCredentialId
             )
         );
 
-        if (empty($credentialSource)) {
-            return '';
+        if (!$user) {
+            throw new CredentialException('User not found.');
         }
 
-        return $credentialSource;
+        return $user;
     }
 }
