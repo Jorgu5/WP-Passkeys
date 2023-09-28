@@ -71,9 +71,9 @@ class AuthenticationHandler implements WebAuthnInterface
             $publicKeyCredentialRequestOptions->allowCredentials = []; // ... $this->getAllowedCredentials()
             $publicKeyCredentialRequestOptions->userVerification =
                 PublicKeyCredentialRequestOptions::USER_VERIFICATION_REQUIREMENT_REQUIRED;
+            $publicKeyCredentialRequestOptions->rpId = Utilities::getHostname();
 
-
-                SessionHandler::instance()->set('pk_credential_request_options', $publicKeyCredentialRequestOptions);
+            SessionHandler::instance()->set('pk_credential_request_options', $publicKeyCredentialRequestOptions);
 
             return new WP_REST_Response($publicKeyCredentialRequestOptions, 200);
         } catch (Exception $e) {
