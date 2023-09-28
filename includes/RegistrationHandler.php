@@ -147,6 +147,11 @@ class RegistrationHandler implements WebAuthnInterface
                 )
             );
 
+            Utilities::setAuthCookie(
+                SessionHandler::instance()->get('user_login'),
+                null
+            );
+
             $response = new WP_REST_Response([
                 'status' => 'Verified',
                 'statusText' => 'Your account has been created. You are being redirect now to dashboard...',
