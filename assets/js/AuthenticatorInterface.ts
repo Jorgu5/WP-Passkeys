@@ -18,6 +18,8 @@ export type UserLoginResponse = {
 
 export interface AuthenticatorInterface {
     generateOptions(): Promise<PublicKeyCredentialRequestOptionsJSON>;
-    start(): Promise<void>;
+    init(isAutofill: boolean): Promise<AuthenticationResponseJSON>
+
+    start(authResp: AuthenticationResponseJSON, id?: string): Promise<void>
     verify(attResp: AuthenticationResponseJSON): Promise<VerificationResponse>
 }

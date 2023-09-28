@@ -1,21 +1,21 @@
 import {RegistrationHandler} from "./RegistrationHandler";
 import {AuthenticationHandler} from "./AuthenticationHandler";
 import {UserLoginResponse} from "./AuthenticatorInterface";
+import {AuthenticationResponseJSON} from "@simplewebauthn/typescript-types";
 
 export class FormHandler {
     private form: HTMLInputElement | null = document.querySelector('#loginform');
     private passwordInput: HTMLInputElement | null = document.querySelector('.user-pass-wrap');
     private rememberAuthCredLink: HTMLAnchorElement | null = document.querySelector('.forgetmenot');
     private lostPasswordLink: HTMLAnchorElement | null = document.querySelector('#nav');
-    private usernameInput: HTMLInputElement | null = document.querySelector('#user_login');
     private registerSuccessNotification: HTMLElement | null = document.querySelector('.register-success-notification');
     private registerErrorNotification: HTMLElement | null = document.querySelector('.register-error-notification');
-    private $authHandler: AuthenticationHandler;
-    private $regHandler: RegistrationHandler
+    private authHandler: AuthenticationHandler;
+    private regHandler: RegistrationHandler;
 
     constructor() {
-        this.$authHandler = new AuthenticationHandler(this.notify.bind(this));
-        this.$regHandler = new RegistrationHandler(this.notify.bind(this));
+        this.authHandler = new AuthenticationHandler(this.notify.bind(this));
+        this.regHandler = new RegistrationHandler(this.notify.bind(this));
     }
 
     public notify(isSuccess: boolean, message: string): void {
@@ -61,36 +61,15 @@ export class FormHandler {
         return !!userResponse?.isExistingUser;
     }
 
-    public initForm():void {
-        if(this.form) {
-            const uselessElementsForWebAuthn: (HTMLInputElement | HTMLAnchorElement | null)[] = [
-                this.passwordInput, this.rememberAuthCredLink, this.lostPasswordLink
-            ];
-            uselessElementsForWebAuthn.forEach((element) => {
-                if(element) {
-                    element.style.display = 'none';
-                }
-            });
-
-            const usernameLabel: HTMLLabelElement | null = this.form.querySelector('label[for="user_login"]');
-
-            if(usernameLabel) {
-                // usernameLabel.innerHTML = 'Username or Email Address';
-            }
-
-            this.usernameInput && (this.usernameInput.autocomplete = 'username webauthn');
-        }
-    }
-
     async handleFormSubmit(event: Event): Promise<void> {
         event.preventDefault();
         try {
             const response = await this.setUserLogin();
-            if (this.isExistingUser(response)) {
-                await this.$authHandler.start();
-            } else {
-                await this.$regHandler.start();
+            if (!this.isExistingUser(response)) {
+                await this.regHandler.start();
             }
+            const authInit = await this.authHandler.init(false);
+            await this.authHandler.start(authInit);
         } catch (error: any) {
             console.error("An error occurred during form submission:", error);
         }
@@ -98,5 +77,5 @@ export class FormHandler {
 }
 
 const formHandler = new FormHandler();
-formHandler.initForm();
+
 formHandler.attachEventListeners();
