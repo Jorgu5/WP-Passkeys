@@ -29,12 +29,10 @@ class FormHandler
             <div class="passkeys-login">
                 <span class="passkeys-separator">'. sprintf('<span>%s</span>', __( 'or', 'wp-passkeys')).'</span>
                 <button
-                    type="button"
                     class="button button-primary passkeys-login__button passkeys-login__button--switcher">'.
                 __('Continue with passkeys', 'wp-passkeys').
                 '</button>
                 <button
-                    type="submit"
                     class="button button-primary passkeys-login__button passkeys-login__button--auth">'.
                  __('Continue', 'wp-passkeys').
                  '</button>
