@@ -11,7 +11,7 @@ namespace WpPasskeys;
 
 use WpPasskeys\Traits\SingletonTrait;
 
-require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
+require_once ABSPATH . 'wp-admin/includes/upgrade.php';
 
 /**
  * Main plugin class.
@@ -26,6 +26,7 @@ class PasskeysPlugin
     private function initHooks(): void
     {
         EnqueueAssets::instance()->init();
+        FormHandler::instance()->init();
         // Register the REST API routes.
         $restApiHandler = new RestApiHandler(
             new AuthenticationHandler(),

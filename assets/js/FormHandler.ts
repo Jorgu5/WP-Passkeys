@@ -1,13 +1,9 @@
 import {RegistrationHandler} from "./RegistrationHandler";
 import {AuthenticationHandler} from "./AuthenticationHandler";
 import {UserLoginResponse} from "./AuthenticatorInterface";
-import {AuthenticationResponseJSON} from "@simplewebauthn/typescript-types";
 
 export class FormHandler {
     private form: HTMLInputElement | null = document.querySelector('#loginform');
-    private passwordInput: HTMLInputElement | null = document.querySelector('.user-pass-wrap');
-    private rememberAuthCredLink: HTMLAnchorElement | null = document.querySelector('.forgetmenot');
-    private lostPasswordLink: HTMLAnchorElement | null = document.querySelector('#nav');
     private registerSuccessNotification: HTMLElement | null = document.querySelector('.register-success-notification');
     private registerErrorNotification: HTMLElement | null = document.querySelector('.register-error-notification');
     private authHandler: AuthenticationHandler;
@@ -27,9 +23,17 @@ export class FormHandler {
     }
 
     public attachEventListeners(): void {
-        const registerButton = document.querySelector<HTMLInputElement>('#wp-submit');
-        if (registerButton) {
-            registerButton.addEventListener('click', (e: Event) => this.handleFormSubmit(e));
+        const formSwitcher = document.querySelector<HTMLInputElement>('.passkeys-login__button--switcher');
+        const formBackSwitch = document.querySelector<HTMLInputElement>('.passkeys-backtodefault');
+        const passkeysAuthButton = document.querySelector<HTMLInputElement>('.passkeys-login__button--auth');
+        if (formSwitcher) {
+            formSwitcher.addEventListener('click', () => {
+                this.form?.classList.add('loginform--passkeys');
+            });
+            formBackSwitch?.addEventListener('click', () => {
+                this.form?.classList.remove('loginform--passkeys');
+            });
+            passkeysAuthButton?.addEventListener('click', (e: Event) => this.handleFormSubmit(e));
         }
     }
 

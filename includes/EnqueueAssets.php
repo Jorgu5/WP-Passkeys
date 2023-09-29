@@ -18,10 +18,6 @@ class EnqueueAssets
     {
         add_action('login_enqueue_scripts', [ $this, 'enqueueScripts' ]);
         add_action('login_enqueue_scripts', [ $this, 'enqueueStyles' ]);
-        add_action('login_head', static function () {
-            ob_start();
-        });
-        add_action('login_footer', [ $this, 'customizeLoginFormInputs' ]);
     }
 
     /**
@@ -70,17 +66,4 @@ class EnqueueAssets
         return plugin_dir_url(__DIR__) . 'dist/';
     }
 
-
-    public function customizeLoginFormInputs(): void
-    {
-        $form = ob_get_clean();
-        $form = preg_replace('/(autocomplete)="username"/', 'autocomplete="username webauthn"', $form);
-        $form = preg_replace(
-            '/<div class="user-pass-wrap">\s*<label for="user_pass">.*?<\/div>\s*<\/div>/s',
-            '',
-            $form
-        );
-
-        echo $form;
-    }
 }

@@ -1,4 +1,75 @@
-.forgetmenot,
-#nav {
-  display: none;
+#loginform {
+  display: flex;
+  flex-direction: column;
+
+  .passkeys-backtodefault {
+    order: 2;
+    cursor: pointer;
+    margin-top: 10px;
+    background: transparent;
+    text-align: left;
+    border: none;
+    display: none;
+  }
+
+  .passkeys-login {
+    order: 1;
+    display: flex;
+    flex-direction: column;
+    .passkeys-separator {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 20px 0 10px;
+      > span {
+        margin: 0 20px;
+        text-transform: uppercase;
+      }
+
+      &::before,
+      &::after {
+        content: "";
+        flex-grow: 1;
+        background: #000;
+        height: 1px;
+      }
+    }
+    &__button {
+      order: 1;
+      background-image: url('../img/fingerprint.svg');
+      background-size: 25px;
+      background-position: 5px center;
+      background-repeat: no-repeat;
+      padding: 2px;
+      margin: 20px auto 0;
+      width: 100%;
+      &--auth {
+        margin: 0;
+        display: none;
+      }
+    }
+  }
+
+  &.loginform--passkeys {
+    .user-pass-wrap,
+    .forgetmenot,
+    .submit,
+    ~ #nav,
+    .passkeys-separator {
+      display: none;
+    }
+
+    .passkeys-login__button {
+      &--auth {
+        display: block;
+      }
+      &--switcher {
+        display: none;
+      }
+    }
+
+    .passkeys-backtodefault {
+      display: block;
+    }
+  }
 }

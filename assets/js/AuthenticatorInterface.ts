@@ -1,6 +1,5 @@
 import {
     AuthenticationResponseJSON,
-    AuthenticatorAssertionResponseJSON,
     PublicKeyCredentialRequestOptionsJSON
 } from "@simplewebauthn/typescript-types";
 
