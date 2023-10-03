@@ -28,21 +28,24 @@ class RestApiHandler extends AbstractApiHandler
     public function init(): void
     {
         SessionHandler::instance()->start();
-        add_action('rest_api_init', array($this, 'registerAuthRoutes'));
+        add_action('rest_api_init', [$this, 'registerAuthRoutes']);
     }
 
     public function registerAuthRoutes(): void
     {
         // Register routes
-        $this->registerRoute(self::REGISTER_NAMESPACE . '/options', 'GET', array($this->reg, self::OPTIONS_CALLBACK));
-        $this->registerRoute(self::REGISTER_NAMESPACE . '/verify', 'POST', array($this->reg, self::VERIFY_CALLBACK));
+        $this->registerRoute(self::REGISTER_NAMESPACE . '/options', 'GET', [$this->reg, self::OPTIONS_CALLBACK]);
+        $this->registerRoute(self::REGISTER_NAMESPACE . '/verify', 'POST', [$this->reg, self::VERIFY_CALLBACK]);
         // Auth routes
-        $this->registerRoute(self::AUTH_NAMESPACE . '/options', 'GET', array($this->auth, self::OPTIONS_CALLBACK));
-        $this->registerRoute(self::AUTH_NAMESPACE . '/verify', 'POST', array($this->auth, self::VERIFY_CALLBACK));
+        $this->registerRoute(self::AUTH_NAMESPACE . '/options', 'GET', [$this->auth, self::OPTIONS_CALLBACK]);
+        $this->registerRoute(self::AUTH_NAMESPACE . '/verify', 'POST', [$this->auth, self::VERIFY_CALLBACK]);
         // Other
-        $this->registerRoute(self::CREDENTIAL_NAMESPACE . '/user', 'POST', array($this->creds, 'setUserLogin'));
-        $this->registerRoute(self::CREDENTIAL_NAMESPACE . '/user', 'DELETE', array(
-            $this->creds, 'removeUserCredentials'
-        ));
+        $this->registerRoute(self::CREDENTIAL_NAMESPACE . '/user/set', 'POST', [$this->creds, 'setUserLogin']);
+        $this->registerRoute(
+            self::CREDENTIAL_NAMESPACE . '/user/remove',
+            'DELETE',
+            [$this->creds, 'removeUserCredentials'],
+            fn() => current_user_can('read')
+        );
     }
 }
