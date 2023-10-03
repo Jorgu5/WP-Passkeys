@@ -61,6 +61,13 @@ class EnqueueAssets
             WP_PASSKEYS_VERSION,
             true
         );
+        wp_localize_script(
+            'passkeys-user-profile-scripts',
+            'passkeys',
+            array(
+                'nonce' => wp_create_nonce('wp_rest'),
+            )
+        );
     }
 
     public function enqueueLoginStyles(): void
