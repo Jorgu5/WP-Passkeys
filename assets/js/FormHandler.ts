@@ -1,6 +1,7 @@
 import {RegistrationHandler} from "./RegistrationHandler";
 import {AuthenticationHandler} from "./AuthenticationHandler";
 import {UserLoginResponse} from "./AuthenticatorInterface";
+import {Utilities} from "./Utilities";
 
 export class FormHandler {
     private form: HTMLInputElement | null = document.querySelector('#loginform');
@@ -37,30 +38,6 @@ export class FormHandler {
         }
     }
 
-    private async setUserLogin(): Promise<UserLoginResponse | null> {
-        const userLogin: HTMLInputElement | null = document.querySelector('#user_login');
-        let userResponse: { isExistingUser?: boolean } = {};
-        if (userLogin?.value) {
-            try {
-                const response: Response = await fetch(`/wp-json/wp-passkeys/register/user?name=${userLogin.value}`, {
-                    method: 'POST',
-                });
-                if (response.ok) {
-                    userResponse = await response.json();
-                } else {
-                    console.error(`Server returned ${response.status}: ${response.statusText}`);
-                }
-
-            } catch (error) {
-                console.error('There was a problem with the fetch operation:', error);
-            }
-
-            return userResponse;
-        }
-
-        return null;
-    }
-
     public isExistingUser(userResponse: UserLoginResponse | null): boolean {
         return !!userResponse?.isExistingUser;
     }
@@ -68,7 +45,7 @@ export class FormHandler {
     async handleFormSubmit(event: Event): Promise<void> {
         event.preventDefault();
         try {
-            const response = await this.setUserLogin();
+            const response = await Utilities.setUserLogin();
             if (!this.isExistingUser(response)) {
                 await this.regHandler.start();
             }
