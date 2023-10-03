@@ -9,6 +9,9 @@
 
 namespace WpPasskeys;
 
+use Psalm\Internal\Cli\Plugin;
+use WpPasskeys\Admin\PluginSettings;
+use WpPasskeys\Admin\UserSettings;
 use WpPasskeys\Traits\SingletonTrait;
 
 require_once ABSPATH . 'wp-admin/includes/upgrade.php';
@@ -33,6 +36,10 @@ class PasskeysPlugin
             new RegistrationHandler(),
         );
         $restApiHandler->init();
+
+        // Admin
+        PluginSettings::instance()->init();
+        UserSettings::instance()->init();
     }
 
     /**

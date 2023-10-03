@@ -16,8 +16,12 @@ class EnqueueAssets
      */
     public function init(): void
     {
-        add_action('login_enqueue_scripts', [ $this, 'enqueueScripts' ]);
-        add_action('login_enqueue_scripts', [ $this, 'enqueueStyles' ]);
+        add_action('login_enqueue_scripts', [ $this, 'enqueueLoginScripts' ]);
+        add_action('login_enqueue_scripts', [ $this, 'enqueueLoginStyles' ]);
+
+        add_action('admin_enqueue_scripts', [ $this, 'enqueueSettingStyles' ]);
+        add_action('admin_enqueue_scripts', [ $this, 'enqueueUserProfileScript' ]);
+        // add_action('admin_enqueue_scripts', [ $this, 'enqueueUserProfileStyles' ]);
     }
 
     /**
@@ -26,7 +30,7 @@ class EnqueueAssets
      * @return void
      */
 
-    public function enqueueScripts(): void
+    public function enqueueLoginScripts(): void
     {
         wp_enqueue_script(
             'passkeys-main-scripts',
@@ -45,11 +49,53 @@ class EnqueueAssets
         );
     }
 
-    public function enqueueStyles(): void
+    public function enqueueUserProfileScript(): void
+    {
+        if (get_current_screen()->id !== 'profile') {
+            return;
+        }
+        wp_enqueue_script(
+            'passkeys-user-profile-scripts',
+            $this->getAssetsPath() . 'js/UserSettings.js',
+            array(),
+            WP_PASSKEYS_VERSION,
+            true
+        );
+    }
+
+    public function enqueueLoginStyles(): void
     {
         wp_enqueue_style(
             'passkeys-main-styles',
-            $this->getAssetsPath() . 'css/admin.css',
+            $this->getAssetsPath() . 'css/default-login.css',
+            array(),
+            WP_PASSKEYS_VERSION,
+            'all'
+        );
+    }
+
+    public function enqueueSettingStyles($hook): void
+    {
+        if ($hook !== 'settings_page_wppk_passkeys_settings') {
+            return;
+        }
+        wp_enqueue_style(
+            'passkeys-plugin-settings-styles',
+            $this->getAssetsPath() . 'css/plugin-settings.css',
+            array(),
+            WP_PASSKEYS_VERSION,
+            'all'
+        );
+    }
+
+    public function enqueueUserProfileStyles($hook): void
+    {
+        if ($hook !== 'profile.php') {
+            return;
+        }
+        wp_enqueue_style(
+            'passkeys-user-profile-styles',
+            $this->getAssetsPath() . 'css/user-settings.css',
             array(),
             WP_PASSKEYS_VERSION,
             'all'
@@ -65,5 +111,4 @@ class EnqueueAssets
     {
         return plugin_dir_url(__DIR__) . 'dist/';
     }
-
 }
