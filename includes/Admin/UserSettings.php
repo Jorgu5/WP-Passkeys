@@ -50,7 +50,7 @@ class UserSettings
             </thead>
             <tbody>
                 <tr>
-                    <td>' . ($this->pkCredentialId ?? 'N/A') . '</td>
+                    <td id="pk_credential_id">' . ($this->pkCredentialId ?? 'N/A') . '</td>
                     <td>' . $this->renderButtons() . '</td> 
                 </tr>
             </tbody>

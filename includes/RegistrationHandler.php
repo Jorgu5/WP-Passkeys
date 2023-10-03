@@ -154,7 +154,8 @@ class RegistrationHandler implements WebAuthnInterface
             $response = new WP_REST_Response([
                 'status' => 'Verified',
                 'statusText' => 'Your account has been created. You are being redirect now to dashboard...',
-                'redirectUrl' => !is_user_logged_in() ? get_admin_url() : ''
+                'redirectUrl' => !is_user_logged_in() ? get_admin_url() : '',
+                'pk_credential_id' => $publicKeyCredential->id,
             ], 200);
         } catch (JsonException $e) {
             $response = new WP_Error(400, $e->getMessage());
