@@ -17,6 +17,7 @@ class UserSettings
     public function init(): void
     {
         add_action('show_user_profile', [$this, 'displayUserPasskeySettings'], 1);
+        add_action('edit_user_profile', [$this, 'displayAdminPasskeySettings'], 1);
         add_action('admin_notices', [$this, 'renderAdminNotice']);
         add_action('init', [$this, 'getPkCredentialId']);
     }
@@ -26,10 +27,22 @@ class UserSettings
      */
     public function displayUserPasskeySettings(): void
     {
+        if(!current_user_can('manage_options')) {
+            return;
+        }
         echo '<div class="user-passkeys-settings">
                 <h2 class="user-passkeys-setting__title">' . __('Your passkeys', 'wp-passkeys') . '</h2>';
                 $this->renderPasskeysList();
         echo '</div>';
+    }
+
+    public function displayAdminPasskeySettings(): void
+    {
+        echo '<div class="user-passkeys-settings">
+                <h2 class="user-passkeys-setting__title">' . __('Passkeys', 'wp-passkeys') . '</h2>' .
+                $this->renderButton(__('Clear user passkeys', 'wp-passkeys'), 'button button-link-delete') .
+                '<span><strong><p>Note: Use this button with caution. It will remove all passkeys for this user. It should be only used when client has lost access to his device and for debugging purposes.</p></strong></span>';
+            '</div>';
     }
 
     public function getPkCredentialId(): void
@@ -64,7 +77,7 @@ class UserSettings
     private function renderButton(string $label, string $extraClass): string
     {
         return sprintf(
-            '<button type="button" class="button button-primary passkeys-login__button %s">%s</button>',
+            '<button type="button" class="button passkeys-login__button %s">%s</button>',
             $extraClass,
             $label
         );
@@ -89,9 +102,9 @@ class UserSettings
     private function renderButtons(): string
     {
         if ($this->pkCredentialId) {
-            return $this->renderButton(__('Remove passkey', 'wp-passkeys'), 'passkeys-login__button--remove');
+            return $this->renderButton(__('Remove passkey', 'wp-passkeys'), 'button-primary passkeys-login__button--remove');
         }
 
-        return $this->renderButton(__('Add passkey', 'wp-passkeys'), 'passkeys-login__button--add');
+        return $this->renderButton(__('Add passkey', 'wp-passkeys'), 'button-primary passkeys-login__button--add');
     }
 }
