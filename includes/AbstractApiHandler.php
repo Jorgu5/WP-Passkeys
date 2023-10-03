@@ -4,12 +4,10 @@ namespace WpPasskeys;
 
 abstract class AbstractApiHandler
 {
-    abstract public function getNamespace(bool $register = false): string;
-
-    protected function registerRoute(string $endpoint, string $method, array $callback, bool $register = false): void
+    protected function registerRoute(string $endpoint, string $method, array $callback): void
     {
         register_rest_route(
-            WP_PASSKEYS_API_NAMESPACE . $this->getNamespace($register),
+            WP_PASSKEYS_API_NAMESPACE,
             $endpoint,
             array(
                 'methods'  => $method,

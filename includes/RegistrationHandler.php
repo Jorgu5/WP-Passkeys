@@ -45,7 +45,6 @@ class RegistrationHandler implements WebAuthnInterface
     public readonly PublicKeyCredentialLoader $publicKeyCredentialLoader;
     public readonly AttestationObjectLoader $attestationObjectLoader;
     public readonly AttestationStatementSupportManager $attestationStatementSupportManager;
-    public const API_NAMESPACE = '/register';
 
     /**
      * Stores the public key credential source.
@@ -155,7 +154,7 @@ class RegistrationHandler implements WebAuthnInterface
             $response = new WP_REST_Response([
                 'status' => 'Verified',
                 'statusText' => 'Your account has been created. You are being redirect now to dashboard...',
-                'redirectUrl' => get_admin_url(),
+                'redirectUrl' => !is_user_logged_in() ? get_admin_url() : ''
             ], 200);
         } catch (JsonException $e) {
             $response = new WP_Error(400, $e->getMessage());
@@ -195,24 +194,5 @@ class RegistrationHandler implements WebAuthnInterface
             Util::getHostname(),
             ['localhost']
         );
-    }
-
-    public function setUserLogin(WP_REST_Request $request): WP_Error | WP_REST_Response
-    {
-        $userLogin = $request->get_param('name');
-        if (empty($userLogin)) {
-            return new WP_Error(400, 'No name parameter has been passed');
-        }
-        $sanitizedUserLogin = sanitize_text_field($userLogin);
-
-        SessionHandler::instance()->set('user_login', $sanitizedUserLogin);
-
-        $user = get_user_by('login', $sanitizedUserLogin);
-
-        $response = [
-            'isExistingUser' => (bool)$user
-        ];
-
-        return new WP_REST_Response($response, 200);
     }
 }

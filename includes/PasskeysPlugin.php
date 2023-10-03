@@ -34,6 +34,7 @@ class PasskeysPlugin
         $restApiHandler = new RestApiHandler(
             new AuthenticationHandler(),
             new RegistrationHandler(),
+            new CredentialsApi()
         );
         $restApiHandler->init();
 

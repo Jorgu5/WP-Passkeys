@@ -39,7 +39,6 @@ class CredentialHelper implements PublicKeyCredentialSourceRepository
      * @return PublicKeyCredentialSource|null The found PublicKeyCredentialSource, or null if not found.
      * @throws InvalidDataException
      * @throws \JsonException
-     * @throws CredentialException
      */
     public function findOneByCredentialId(string $publicKeyCredentialId): ?PublicKeyCredentialSource
     {
@@ -122,19 +121,34 @@ class CredentialHelper implements PublicKeyCredentialSourceRepository
      */
     public function createUserWithPkCredentialId(string $publicKeyCredentialId): void
     {
+
+        $username = SessionHandler::instance()->get('user_login');
+        $userData = [
+            'user_login' => $username,
+            'meta_input' => [
+                'pk_credential_id' => Utilities::safeEncode($publicKeyCredentialId)
+            ]
+        ];
+
+        if ($this->getExistingUserId($username)) {
+            $userData['ID'] = get_user_by('login', $username)->ID;
+        }
+
         $addUser = wp_insert_user(
-            array(
-                'user_login' => SessionHandler::instance()->get('user_login'),
-                'meta_input' => [
-                    'pk_credential_id' => Utilities::safeEncode($publicKeyCredentialId)
-                ],
-            )
+            $userData
         );
 
-        if (is_wp_error($addUser)) {
+        if (is_wp_error($addUser) && $addUser->get_error_code() !== 'existing_user_login') {
             throw new CredentialException($addUser->get_error_message());
         }
     }
+
+    private function getExistingUserId(string $username): ?int
+    {
+        $user = get_user_by('login', $username);
+        return $user->ID ?? null;
+    }
+
 
     public function saveSessionCredentialOptions(
         PublicKeyCredentialCreationOptions $publicKeyCredentialCreationOptions
@@ -176,8 +190,6 @@ class CredentialHelper implements PublicKeyCredentialSourceRepository
      */
     private function getUserPublicKeySources(string $username): array
     {
-        global $wpdb;
-
         $user = get_user_by('login', $username);
 
         if (!$user) {
