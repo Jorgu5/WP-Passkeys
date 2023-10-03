@@ -8,7 +8,8 @@ export type NotifyFunctionType = (success: boolean, message: string) => void;
 export type VerificationResponse = {
     status?: string,
     statusText?: string,
-    redirectUrl?: string
+    redirectUrl?: string,
+    pk_credential_id?: string
 }
 
 export type UserLoginResponse = {

@@ -38,7 +38,7 @@ export class RegistrationHandler {
         }
     }
 
-    async start(): Promise<void> {
+    async start(): Promise<VerificationResponse> {
         try {
             const startResp: PublicKeyCredentialCreationOptionsJSON = await this.generateOptions();
             const attResp: RegistrationResponseJSON = await startRegistration(startResp);
@@ -46,7 +46,6 @@ export class RegistrationHandler {
 
             try {
                 verificationJSON = await this.verify(attResp);
-                console.log(verificationJSON);
                 if (verificationJSON.redirectUrl) {
                     window.location.href = verificationJSON.redirectUrl;
                 }
@@ -59,6 +58,9 @@ export class RegistrationHandler {
                 : 'Registration failed';
 
             this.notify(!!verificationJSON?.status, message);
+
+            return verificationJSON;
+
         } catch (error: any) {
             this.notify(false, `Error: ${error.message || error}`);
             throw error;
