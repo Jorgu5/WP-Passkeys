@@ -21,7 +21,6 @@ class EnqueueAssets
 
         add_action('admin_enqueue_scripts', [ $this, 'enqueueSettingStyles' ]);
         add_action('admin_enqueue_scripts', [ $this, 'enqueueUserProfileScript' ]);
-        // add_action('admin_enqueue_scripts', [ $this, 'enqueueUserProfileStyles' ]);
     }
 
     /**
@@ -89,20 +88,6 @@ class EnqueueAssets
         wp_enqueue_style(
             'passkeys-plugin-settings-styles',
             $this->getAssetsPath() . 'css/plugin-settings.css',
-            array(),
-            WP_PASSKEYS_VERSION,
-            'all'
-        );
-    }
-
-    public function enqueueUserProfileStyles($hook): void
-    {
-        if ($hook !== 'profile.php') {
-            return;
-        }
-        wp_enqueue_style(
-            'passkeys-user-profile-styles',
-            $this->getAssetsPath() . 'css/user-settings.css',
             array(),
             WP_PASSKEYS_VERSION,
             'all'
