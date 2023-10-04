@@ -58,6 +58,7 @@ class PasskeysPlugin
     {
         $this->initHooks();
         $this->createCredentialsTable();
+        $this->setDefaultPluginOptions();
         self::activate();
     }
 
@@ -77,5 +78,21 @@ class PasskeysPlugin
         ) $charset_collate;";
 
         dbDelta($sql);
+    }
+
+    public function setDefaultPluginOptions(): void
+    {
+        $this->setDefaultOption('wppk_login_priority', 'Default WP Login');
+        $this->setDefaultOption('wppk_require_userdata', 'Require email only');
+        $this->setDefaultOption('wppk_passkeys_redirect', admin_url());
+        $this->setDefaultOption('wppk_passkeys_timeout', '3000');
+        $this->setDefaultOption('wppk_prompt_password_users', 'off');
+    }
+
+    private function setDefaultOption(string $optionName, string $defaultValue): void
+    {
+        if (get_option($optionName) === false) {
+            update_option($optionName, $defaultValue);
+        }
     }
 }

@@ -165,7 +165,7 @@ class PluginSettings
 
     public function requireUserdataCallback(array $args): void
     {
-        $option = $this->setDefaultOptions('wppk_require_userdata', 'Require email only');
+        $option = get_option('wppk_require_userdata');
         $this->renderDescription($args);
         $items = [
             "Require email only",
@@ -182,7 +182,7 @@ class PluginSettings
 
     public function loginPriorityCallback(array $args): void
     {
-        $option = $this->setDefaultOptions('wppk_login_priority', 'Default WP Login');
+        $option = get_option('wppk_login_priority');
         $this->renderDescription($args);
         $items = ["Default WP Login", "Passkeys"];
         echo "<select id='login_priority_type' name='login_priority_type'>";
@@ -196,21 +196,21 @@ class PluginSettings
 
     public function passkeysRedirectCallback($args): void
     {
-        $option = $this->setDefaultOptions('wppk_passkeys_redirect', admin_url());
+        $option = get_option('wppk_passkeys_redirect');
         echo "<input type='text' name='wppk_passkeys_redirect' value='$option'>";
         $this->renderDescription($args);
     }
 
     public function passkeysTimeoutCallback($args): void
     {
-        $option = $this->setDefaultOptions('wppk_passkeys_timeout', '3000');
+        $option = get_option('wppk_passkeys_timeout');
         echo "<input type='number' placeholder='3000' name='wppk_passkeys_timeout' value='$option'>";
         $this->renderDescription($args);
     }
 
     public function promptPasswordUsers($args): void
     {
-        $option = $this->setDefaultOptions('wppk_prompt_password_users', 'off');
+        $option = get_option('wppk_prompt_password_users');
         $checked = ($option === 'on') ? 'checked="checked"' : '';
         echo "<input type='checkbox' name='wppk_prompt_password_users' $checked>";
         $this->renderAdditionalNote($args);
@@ -228,14 +228,5 @@ class PluginSettings
         if (isset($args['additional_note'])) {
             echo "<span class='additional_note'>{$args['additional_note']}</span>";
         }
-    }
-
-    private function setDefaultOptions(string $optionName, string $defaultValue): string
-    {
-        $option = get_option($optionName);
-        if (empty($option)) {
-            update_option($optionName, $defaultValue);
-        }
-        return $option;
     }
 }
