@@ -1,5 +1,15 @@
 <?php
 
+/**
+* List of settings
+ * get_option('wppk_login_priority')
+ * get_option('wppk_require_userdata')
+ * get_option('wppk_passkeys_redirect')
+ * get_option('wppk_passkeys_timeout')
+ * get_option('wppk_prompt_password_users')
+ *
+ */
+
 declare(strict_types=1);
 
 namespace WpPasskeys\Admin;
@@ -12,8 +22,8 @@ class PluginSettings
 
     public function init(): void
     {
-        add_action('admin_init', array($this, 'setupSettings'));
-        add_action('admin_menu', array($this, 'addAdminMenu'));
+        add_action('admin_init', [$this, 'setupSettings']);
+        add_action('admin_menu', [$this, 'addAdminMenu']);
     }
 
     public function addAdminMenu(): void
@@ -23,7 +33,7 @@ class PluginSettings
             'Passkeys',
             'manage_options',
             'wppk_passkeys_settings',
-            array($this, 'settingsPageContent')
+            [$this, 'settingsPageContent']
         );
     }
 
@@ -31,7 +41,7 @@ class PluginSettings
     {
         ?>
         <div class="wrap">
-            <h2>Passkeys Settings</h2>
+            <h2><?php __('Passkeys Settings', 'wp-passkeys') ?></h2>
             <form action="options.php" method="POST">
                 <?php
                 settings_fields('general');
@@ -47,43 +57,54 @@ class PluginSettings
     {
         add_settings_section(
             'wppk_general_settings_section',
-            'General',
+            __('General', 'wp-passkeys'),
             [$this, 'settingsGeneralSectionCallback'],
             'general'
         );
 
         add_settings_section(
             'wppk_password_settings_section',
-            'Users with legacy password',
+            __('Users with legacy password', 'wp-passkeys'),
             [$this, 'settingsPasswordSectionCallback'],
             'general'
         );
 
         add_settings_field(
-            'wppk_login_priority_type',
-            'Allow passkeys',
-            [$this, 'loginPriorityCallback'],
+            'wppk_prompt_password_users',
+            __('Prompt for passkeys', 'wp-passkeys'),
+            [$this, 'promptPasswordUsers'],
             'general',
             'wppk_password_settings_section',
             [
-                'description' => 'If user device and browser have support for WebAuthn, 
-                he will be prompted to add passkeys on his next login that will be tied to his existing account.',
+                'additional_note' => __('Upon first login after activating this plugin,
+                prompt the old users to set up their passkeys.', 'wp-passkeys'),
             ]
         );
-        register_setting('general', 'wppk_login_priority_type', 'sanitize_text_field');
+        register_setting('general', 'wppk_prompt_password_users', 'sanitize_text_field');
 
         add_settings_field(
-            'wppk_allow_registration',
-            'Allow registration',
-            [$this, 'allowRegistrationCallback'],
+            'wppk_login_priority',
+            __('Priority', 'wp-passkeys'),
+            [$this, 'loginPriorityCallback'],
             'general',
             'wppk_general_settings_section',
             [
-                'description' => 'Allow new users to register with a passkey. If left unchecked, 
-                only registered users with password will be able to add passkeys to their account.',
+                'description' => __(
+                    'Select a preferred login method. Choosing "Passkeys" will make
+                username and password optional, requiring an extra step for fallback authentication.
+                Note: Future updates aim to automatically identify users with passkeys and prompt
+                them to add them during their next login, but this feature is not yet available.',
+                    'wp-passkeys'
+                ),
+                'additional_note' => __(
+                    'Recommended Setting: For older sites with users primarily using passwords,
+                start with "Default WP Login" and switch once the majority have adopted passkeys.
+                For new sites, its advisable to select "Passkeys" from the beginning.',
+                    'wp-passkeys'
+                ),
             ]
         );
-        register_setting('general', 'wppk_login_priority_type', 'sanitize_text_field');
+        register_setting('general', 'wppk_login_priority', 'sanitize_text_field');
 
         add_settings_field(
             'wppk_require_userdata',
@@ -92,12 +113,13 @@ class PluginSettings
             'general',
             'wppk_general_settings_section',
             [
-                'description' => 'Choose what user details are required to be entered by the user on registration.',
-                'additional_note' => 'If you choose "Require nothing" the user will be recognized by the passkey only
-                and his username will be randomly generated.'
+                'description' => __('Select the user information fields that
+                must be completed during the registration process.', 'wp-passkeys'),
+                'additional_note' => __('If you select "Require nothing"
+                the user will be registered with a random username', 'wp-passkeys')
             ],
         );
-        register_setting('general', 'wppk_require_userdata', 'boolval');
+        register_setting('general', 'wppk_require_userdata');
 
         add_settings_field(
             'wppk_passkeys_redirect',
@@ -106,7 +128,10 @@ class PluginSettings
             'general',
             'wppk_general_settings_section',
             [
-                'description' => 'The URL to redirect to after a successful login with passkeys.'
+                'description' => __(
+                    'The URL to redirect to after a successful login with passkeys.',
+                    'wp-passkeys'
+                )
             ]
         );
         register_setting('general', 'wppk_passkeys_redirect', 'sanitize_url');
@@ -118,8 +143,11 @@ class PluginSettings
             'general',
             'wppk_general_settings_section',
             [
-                'description' => 'The time (in milliseconds) that the user has to respond 
-                to a prompt for registration before an error is returned.'
+                'description' => __(
+                    'The time (in milliseconds) that the user has to respond 
+                        to a prompt for registration before an error is returned.',
+                    'wp-passkeys'
+                ),
             ]
         );
         register_setting('general', 'wppk_passkeys_timeout', 'intval');
@@ -132,70 +160,82 @@ class PluginSettings
 
     public function settingsPasswordSectionCallback(): void
     {
-        echo 'Specifically for users who have registered with a password before passkeys';
+        _e('Specifically for users who have registered with a password before passkeys', 'wp-passkeys');
     }
 
     public function requireUserdataCallback(array $args): void
     {
-        $setting = get_option('wppk_require_userdata');
-        if (isset($args['description'])) {
-            echo "<p class='description'>{$args['description']}</p>";
-        }
-        $items = array(
+        $option = $this->setDefaultOptions('wppk_require_userdata', 'Require email only');
+        $this->renderDescription($args);
+        $items = [
             "Require email only",
             "Require email and display name",
             "Require display name only",
             "Require nothing"
-        );
+        ];
         foreach ($items as $item) {
-            $checked = ($setting === $item) ? 'checked="checked"' : '';
+            $checked = ($option === $item) ? 'checked="checked"' : '';
             echo "<input type='radio' name='wppk_require_userdata' value='$item' $checked>$item<br>";
         }
-        if (isset($args['additional_note'])) {
-            echo "<span class='additional_note'>Note: {$args['additional_note']}</span>";
-        }
+        $this->renderAdditionalNote($args);
     }
 
     public function loginPriorityCallback(array $args): void
     {
-        $option = get_option('login_priority_type');
-        $items = array("Default WP Login", "Passkeys");
+        $option = $this->setDefaultOptions('wppk_login_priority', 'Default WP Login');
+        $this->renderDescription($args);
+        $items = ["Default WP Login", "Passkeys"];
         echo "<select id='login_priority_type' name='login_priority_type'>";
         foreach ($items as $item) {
             $selected = ($option === $item) ? 'selected="selected"' : '';
             echo "<option value='$item' $selected>$item</option>";
         }
         echo "</select>";
-        if (isset($args['description'])) {
-            echo "<span class='description'>{$args['description']}</span>";
-        }
+        $this->renderAdditionalNote($args);
     }
 
     public function passkeysRedirectCallback($args): void
     {
-        $option = get_option('wppk_passkeys_redirect');
+        $option = $this->setDefaultOptions('wppk_passkeys_redirect', admin_url());
         echo "<input type='text' name='wppk_passkeys_redirect' value='$option'>";
-        if (isset($args['description'])) {
-            echo "<span class='description'>{$args['description']}</span>";
-        }
+        $this->renderDescription($args);
     }
 
     public function passkeysTimeoutCallback($args): void
     {
-        $option = get_option('wppk_passkeys_timeout');
+        $option = $this->setDefaultOptions('wppk_passkeys_timeout', '3000');
         echo "<input type='number' placeholder='3000' name='wppk_passkeys_timeout' value='$option'>";
+        $this->renderDescription($args);
+    }
+
+    public function promptPasswordUsers($args): void
+    {
+        $option = $this->setDefaultOptions('wppk_prompt_password_users', 'off');
+        $checked = ($option === 'on') ? 'checked="checked"' : '';
+        echo "<input type='checkbox' name='wppk_prompt_password_users' $checked>";
+        $this->renderAdditionalNote($args);
+    }
+
+    private function renderDescription(array $args): void
+    {
         if (isset($args['description'])) {
-            echo "<span class='description'>{$args['description']}</span>";
+            echo "<p class='description'>{$args['description']}</p>";
         }
     }
 
-    public function allowRegistrationCallback($args): void
+    private function renderAdditionalNote(array $args): void
     {
-        $option = get_option('wppk_allow_registration');
-        $checked = ($option === 'on') ? 'checked="checked"' : '';
-        echo "<input type='checkbox' name='wppk_allow_registration' $checked>";
-        if (isset($args['description'])) {
-            echo "<span class='description'>{$args['description']}</span>";
+        if (isset($args['additional_note'])) {
+            echo "<span class='additional_note'>{$args['additional_note']}</span>";
         }
+    }
+
+    private function setDefaultOptions(string $optionName, string $defaultValue): string
+    {
+        $option = get_option($optionName);
+        if (empty($option)) {
+            update_option($optionName, $defaultValue);
+        }
+        return $option;
     }
 }
