@@ -44,8 +44,8 @@ class PluginSettings
             <h2><?php __('Passkeys Settings', 'wp-passkeys') ?></h2>
             <form action="options.php" method="POST">
                 <?php
-                settings_fields('general');
-                do_settings_sections('general');
+                settings_fields('options');
+                do_settings_sections('options');
                 submit_button();
                 ?>
             </form>
@@ -59,34 +59,34 @@ class PluginSettings
             'wppk_general_settings_section',
             __('General', 'wp-passkeys'),
             [$this, 'settingsGeneralSectionCallback'],
-            'general'
+            'options'
         );
 
         add_settings_section(
             'wppk_password_settings_section',
             __('Users with legacy password', 'wp-passkeys'),
             [$this, 'settingsPasswordSectionCallback'],
-            'general'
+            'options'
         );
 
         add_settings_field(
             'wppk_prompt_password_users',
             __('Prompt for passkeys', 'wp-passkeys'),
             [$this, 'promptPasswordUsers'],
-            'general',
+            'options',
             'wppk_password_settings_section',
             [
                 'additional_note' => __('Upon first login after activating this plugin,
                 prompt the old users to set up their passkeys.', 'wp-passkeys'),
             ]
         );
-        register_setting('general', 'wppk_prompt_password_users', 'sanitize_text_field');
+        register_setting('options', 'wppk_prompt_password_users', 'sanitize_text_field');
 
         add_settings_field(
             'wppk_login_priority',
             __('Priority', 'wp-passkeys'),
             [$this, 'loginPriorityCallback'],
-            'general',
+            'options',
             'wppk_general_settings_section',
             [
                 'description' => __(
@@ -104,13 +104,13 @@ class PluginSettings
                 ),
             ]
         );
-        register_setting('general', 'wppk_login_priority', 'sanitize_text_field');
+        register_setting('options', 'wppk_login_priority', 'sanitize_text_field');
 
         add_settings_field(
             'wppk_require_userdata',
             'User details',
             [$this, 'requireUserdataCallback'],
-            'general',
+            'options',
             'wppk_general_settings_section',
             [
                 'description' => __('Select the user information fields that
@@ -119,13 +119,13 @@ class PluginSettings
                 the user will be registered with a random username', 'wp-passkeys')
             ],
         );
-        register_setting('general', 'wppk_require_userdata');
+        register_setting('options', 'wppk_require_userdata');
 
         add_settings_field(
             'wppk_passkeys_redirect',
             'Redirect URL',
             [$this, 'passkeysRedirectCallback'],
-            'general',
+            'options',
             'wppk_general_settings_section',
             [
                 'description' => __(
@@ -134,13 +134,13 @@ class PluginSettings
                 )
             ]
         );
-        register_setting('general', 'wppk_passkeys_redirect', 'sanitize_url');
+        register_setting('options', 'wppk_passkeys_redirect', 'sanitize_url');
 
         add_settings_field(
             'wppk_passkeys_timeout',
             'Timeout',
             [$this, 'passkeysTimeoutCallback'],
-            'general',
+            'options',
             'wppk_general_settings_section',
             [
                 'description' => __(
@@ -150,7 +150,7 @@ class PluginSettings
                 ),
             ]
         );
-        register_setting('general', 'wppk_passkeys_timeout', 'intval');
+        register_setting('options', 'wppk_passkeys_timeout', 'intval');
     }
 
     public function settingsGeneralSectionCallback(): void
