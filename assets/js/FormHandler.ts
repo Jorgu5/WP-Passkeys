@@ -4,9 +4,11 @@ import {UserLoginResponse} from "./AuthenticatorInterface";
 import {Utilities} from "./Utilities";
 
 export class FormHandler {
-    private form: HTMLInputElement | null = document.querySelector('#loginform');
+    private loginForm: HTMLFormElement | null = document.querySelector('#loginform');
+    private registerForm: HTMLFormElement | null = document.querySelector('#registerform');
     private registerSuccessNotification: HTMLElement | null = document.querySelector('.register-success-notification');
     private registerErrorNotification: HTMLElement | null = document.querySelector('.register-error-notification');
+    private passkeysButton: HTMLButtonElement | null = document.querySelector('.passkeys-button');
     private authHandler: AuthenticationHandler;
     private regHandler: RegistrationHandler;
 
@@ -23,40 +25,71 @@ export class FormHandler {
         }
     }
 
-    public attachEventListeners(): void {
-        const formSwitcher = document.querySelector<HTMLInputElement>('.passkeys-login__button--switcher');
-        const formBackSwitch = document.querySelector<HTMLInputElement>('.passkeys-backtodefault');
-        const passkeysAuthButton = document.querySelector<HTMLInputElement>('.passkeys-login__button--auth');
-        if (formSwitcher) {
-            formSwitcher.addEventListener('click', () => {
-                this.form?.classList.add('loginform--passkeys');
-            });
-            formBackSwitch?.addEventListener('click', () => {
-                this.form?.classList.remove('loginform--passkeys');
-            });
-            passkeysAuthButton?.addEventListener('click', (e: Event) => this.handleFormSubmit(e));
-        }
-    }
-
-    public isExistingUser(userResponse: UserLoginResponse | null): boolean {
-        return !!userResponse?.isExistingUser;
-    }
-
     async handleFormSubmit(event: Event): Promise<void> {
         event.preventDefault();
         try {
-            const response = await Utilities.setUserLogin();
-            if (!this.isExistingUser(response)) {
-                await this.regHandler.start();
-            }
-            const authInit = await this.authHandler.init(false);
-            await this.authHandler.start(authInit);
+            Utilities.setUserLogin().then(async () => {
+                console.log('set user login');
+                console.log(this.loginForm);
+                if (this.loginForm) {
+                    console.log('login');
+                    const authInit = await this.authHandler.init(false);
+                    await this.authHandler.start(authInit);
+                } else if (this.registerForm) {
+                    console.log('register');
+                    await this.regHandler.start();
+                }
+            })
         } catch (error: any) {
             console.error("An error occurred during form submission:", error);
+        }
+    }
+
+    initForm(): void {
+        const submitButton: HTMLInputElement | null = document.querySelector('.submit');
+        if (this.isAnyFormPresentAndButtonsExist(this.passkeysButton, submitButton)) {
+            const wrapper = this.createWrapper();
+            this.wrapButtons(wrapper, submitButton, this.passkeysButton);
+            this.appendToForms(wrapper);
+        }
+
+        this.passkeysButton?.addEventListener('click', this.handleFormSubmit.bind(this));
+    }
+
+    private isAnyFormPresentAndButtonsExist(
+        passkeysButton: HTMLButtonElement | null,
+        submitButton: HTMLInputElement | null
+    ): boolean {
+        return Boolean((passkeysButton && this.loginForm) || (passkeysButton && this.registerForm) && submitButton);
+    }
+
+    private createWrapper(): HTMLDivElement {
+        const wrapper = document.createElement('div');
+        wrapper.classList.add('passkeys-login__wrapper');
+        return wrapper;
+    }
+
+    private wrapButtons(
+        wrapper: HTMLDivElement,
+        submitButton: HTMLInputElement | null,
+        passkeysButton: HTMLButtonElement | null
+    ): void {
+        if (submitButton) {
+            wrapper.appendChild(submitButton);
+            wrapper.appendChild(passkeysButton as HTMLInputElement);
+        }
+    }
+
+    private appendToForms(wrapper: HTMLDivElement): void {
+        if (this.loginForm) {
+            this.loginForm.appendChild(wrapper);
+        }
+        if (this.registerForm) {
+            this.registerForm.appendChild(wrapper);
         }
     }
 }
 
 const formHandler = new FormHandler();
 
-formHandler.attachEventListeners();
+formHandler.initForm();
