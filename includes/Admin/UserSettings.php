@@ -88,7 +88,7 @@ class UserSettings
 
     public function renderAdminNotice(): void
     {
-        if (!$this->pkCredentialId) {
+        if (!$this->pkCredentialId && get_option('wppk_prompt_password_users') === 'on') {
             echo '<div style="display: flex; align-items: center;" class="notice notice-info is-dismissible">
                 <p>' . __(
                 'We now offer passkeys support, and it looks like you havent set up your keys yet. 
