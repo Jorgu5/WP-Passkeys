@@ -2,7 +2,6 @@
 
 /**
 * List of settings
- * get_option('wppk_login_priority')
  * get_option('wppk_require_userdata')
  * get_option('wppk_passkeys_redirect')
  * get_option('wppk_passkeys_timeout')
@@ -89,7 +88,7 @@ class PluginSettings
         add_settings_field(
             'wppk_remove_password_field',
             __('Remove passwords', 'wp-passkeys'),
-            [$this, 'loginPriorityCallback'],
+            [$this, 'removeLoginPassword'],
             'passkeys-options',
             'wppk_general_settings_section',
             [
@@ -105,15 +104,15 @@ class PluginSettings
 
         add_settings_field(
             'wppk_require_userdata',
-            'User details',
+            'Require user data',
             [$this, 'requireUserdataCallback'],
             'passkeys-options',
             'wppk_general_settings_section',
             [
-                'label' => __('Select the user information fields that
-                must be completed during the registration process.', 'wp-passkeys'),
-                'additional_note' => __('If you select "Require nothing"
-                the user will be registered with a random username', 'wp-passkeys')
+                'label' => __('Choose the user data to require during registration. 
+                If left unchecked, users will be registered with random usernames and passkeys a.k.a Usernameless. 
+                Unchecking both username and email will disable default WordPress registration with a password and force passkey registration.
+                ', 'wp-passkeys'),
             ],
         );
         register_setting('passkeys-options', 'wppk_require_userdata');
@@ -164,27 +163,33 @@ class PluginSettings
     {
         $optionName = 'wppk_require_userdata';
         $option = get_option($optionName);
-        $this->renderLabel($args, $optionName);
         $items = [
-            "Require email only" => 'email',
-            "Require email and display name" => 'email_display_name',
-            "Require display name only" => 'display_name',
-            "Require email and make display name optional" => 'email_optional_display_name',
-            "Require nothing" => 'none'
+            "Email" => 'email',
+            "Username" => 'username',
+            "Display name" => 'display_name',
         ];
-        foreach ($items as $itemName => $itemValue) {
-            $checked = ($option === $itemValue) ? 'checked="checked"' : '';
-            echo "<input type='radio' name='wppk_require_userdata' value='$itemValue' $checked>$itemName<br>";
+        if (empty($option)) {
+            update_option($optionName, []);
         }
+        echo '<fieldset>
+                <legend><span>' . __($args['label'], 'wp-passkeys') . '</span></legend>';
+        foreach ($items as $itemName => $itemValue) {
+            $checked = in_array($itemValue, $option, true) ? 'checked="checked"' : '';
+            echo "<label for={$optionName}>${itemName}</label><input type='checkbox' name='{$optionName}[]' value='{$itemValue}' $checked>";
+        }
+        echo '</fieldset>';
     }
 
-    public function loginPriorityCallback(array $args): void
+    public function removeLoginPassword(array $args): void
     {
         $optionName = 'wppk_remove_password_field';
         $option = get_option($optionName);
+        if (empty($option)) {
+            update_option($optionName, 'off');
+        }
         $this->renderLabel($args, $optionName);
         $checked = ($option === 'on') ? 'checked="checked"' : '';
-        echo "<input type='checkbox' name='wppk_prompt_password_users' $checked>";
+        echo "<input type='checkbox' name='wppk_remove_password_field' $checked>";
     }
 
     public function passkeysRedirectCallback($args): void
@@ -200,13 +205,16 @@ class PluginSettings
         $optionName = 'wppk_passkeys_timeout';
         $option = get_option($optionName);
         $this->renderLabel($args, $optionName);
-        echo "<input type='number' placeholder='3000' name='wppk_passkeys_timeout' value='$option'>";
+        echo "<input type='number' placeholder='30000' name='wppk_passkeys_timeout' value='$option'>";
     }
 
     public function promptPasswordUsers($args): void
     {
         $optionName = 'wppk_prompt_password_users';
         $option = get_option($optionName);
+        if (empty($option)) {
+            update_option($optionName, 'off');
+        }
         $this->renderLabel($args, $optionName);
         $checked = ($option === 'on') ? 'checked="checked"' : '';
         echo "<input type='checkbox' name='wppk_prompt_password_users' $checked>";
