@@ -93,7 +93,7 @@ class RegistrationHandler implements WebAuthnInterface
                 $publicKeyCredentialParameters,
             );
 
-            $this->publicKeyCredentialCreationOptions->timeout = 30000;
+            $this->publicKeyCredentialCreationOptions->timeout = get_option('wppk_passkeys_timeout', '30000');
             $this->publicKeyCredentialCreationOptions->authenticatorSelection = AuthenticatorSelectionCriteria::create(
                 AuthenticatorSelectionCriteria::AUTHENTICATOR_ATTACHMENT_PLATFORM,
                 AuthenticatorSelectionCriteria::USER_VERIFICATION_REQUIREMENT_REQUIRED,
@@ -154,7 +154,7 @@ class RegistrationHandler implements WebAuthnInterface
             $response = new WP_REST_Response([
                 'status' => 'Verified',
                 'statusText' => 'Your account has been created. You are being redirect now to dashboard...',
-                'redirectUrl' => !is_user_logged_in() ? get_admin_url() : '',
+                'redirectUrl' => !is_user_logged_in() ? Utilities::getRedirectUrl() : '',
                 'pk_credential_id' => $publicKeyCredential->id,
             ], 200);
         } catch (JsonException $e) {

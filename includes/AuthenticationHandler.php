@@ -143,7 +143,7 @@ class AuthenticationHandler implements WebAuthnInterface
             $response = new WP_REST_Response(array(
                 'status' => 'Verified',
                 'statusText' => 'Successfully verified the credential.',
-                'redirectUrl' => get_admin_url(),
+                'redirectUrl' => Utilities::getRedirectUrl(),
             ), 200);
         } catch (JsonException | Exception $e) {
             $response = new WP_Error('Invalid_response', $e->getMessage(), array( 'status' => 400 ));

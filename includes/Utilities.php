@@ -146,4 +146,12 @@ class Utilities
         wp_set_current_user($user->ID, $user->user_login);
         wp_set_auth_cookie($user->ID, true);
     }
+
+    public static function getRedirectUrl(): string {
+        $redirectUrl = get_option('wppk_passkeys_redirect');
+        if(empty($redirectUrl)) {
+            $redirectUrl = get_admin_url();
+        }
+        return $redirectUrl;
+    }
 }
