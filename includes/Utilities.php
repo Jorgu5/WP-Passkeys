@@ -147,9 +147,10 @@ class Utilities
         wp_set_auth_cookie($user->ID, true);
     }
 
-    public static function getRedirectUrl(): string {
+    public static function getRedirectUrl(): string
+    {
         $redirectUrl = get_option('wppk_passkeys_redirect');
-        if(empty($redirectUrl)) {
+        if (empty($redirectUrl)) {
             $redirectUrl = get_admin_url();
         }
         return $redirectUrl;

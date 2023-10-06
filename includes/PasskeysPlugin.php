@@ -84,7 +84,7 @@ class PasskeysPlugin
     {
         $this->setDefaultOption('wppk_require_userdata', []);
         $this->setDefaultOption('wppk_passkeys_redirect', admin_url());
-        $this->setDefaultOption('wppk_passkeys_timeout', '30000');
+        $this->setDefaultOption('wppk_passkeys_timeout', 30000);
         $this->setDefaultOption('wppk_prompt_password_users', 'off');
         $this->setDefaultOption('wppk_remove_password_field', 'off');
     }

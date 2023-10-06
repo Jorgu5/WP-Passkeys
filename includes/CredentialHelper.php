@@ -18,8 +18,11 @@ use Webauthn\PublicKeyCredentialSourceRepository;
 use Webauthn\PublicKeyCredentialUserEntity;
 use Webauthn\TrustPath\TrustPath;
 use Symfony\Component\Uid\Uuid;
+use WP_Error;
 use WP_User;
+use WpOrg\Requests\Session;
 use WpPasskeys\Exceptions\CredentialException;
+use WpPasskeys\Exceptions\NonceException;
 use WpPasskeys\Traits\SingletonTrait;
 
 /**
@@ -121,34 +124,28 @@ class CredentialHelper implements PublicKeyCredentialSourceRepository
      */
     public function createUserWithPkCredentialId(string $publicKeyCredentialId): void
     {
-
-        $username = SessionHandler::instance()->get('user_login');
-        $userData = [
-            'user_login' => $username,
-            'meta_input' => [
-                'pk_credential_id' => Utilities::safeEncode($publicKeyCredentialId)
-            ]
+        $userData = UsernameHandler::instance()->handleUserData();
+        $userData['meta_input'] = [
+            'pk_credential_id' => Utilities::safeEncode($publicKeyCredentialId)
         ];
 
-        if ($this->getExistingUserId($username)) {
-            $userData['ID'] = get_user_by('login', $username)->ID;
-        }
+        $addUser = wp_insert_user($userData);
 
-        $addUser = wp_insert_user(
-            $userData
-        );
-
-        if (is_wp_error($addUser) && $addUser->get_error_code() !== 'existing_user_login') {
+        // TODO: Take adding passkeys from the dashboard to a different method.
+        if (is_wp_error($addUser)) {
+            if ($addUser->get_error_code() === 'existing_user_login') {
+                $userId     = $this->getExistingUserId($userData['user_login']);
+                if (is_wp_error($userId)) {
+                    throw new CredentialException($userId->get_error_message());
+                }
+                $user['ID'] = $userId;
+                $addUser    = wp_insert_user(
+                    $user
+                );
+            }
             throw new CredentialException($addUser->get_error_message());
         }
     }
-
-    private function getExistingUserId(string $username): ?int
-    {
-        $user = get_user_by('login', $username);
-        return $user->ID ?? null;
-    }
-
 
     public function saveSessionCredentialOptions(
         PublicKeyCredentialCreationOptions $publicKeyCredentialCreationOptions
@@ -222,9 +219,30 @@ class CredentialHelper implements PublicKeyCredentialSourceRepository
         );
 
         if (!$user) {
-            throw new CredentialException('User not found.');
+            throw new CredentialException('There is no user with this credential ID.');
         }
 
         return $user;
+    }
+
+    private function getExistingUserId($username): int | WP_Error
+    {
+        if (!is_user_logged_in()) {
+            return new WP_Error(
+                'unauthorized',
+                'You have to login to add a credential to the existing account.',
+                ['status' => 401]
+            );
+        }
+        if (!wp_verify_nonce($_POST['wp_passkeys_nonce'], 'wp_passkeys_nonce')) {
+            return new WP_Error(
+                'forbidden',
+                'Adding credentials failed, nonce is not correct, please refresh the page and try again.',
+                ['status' => 403
+                ]
+            );
+        }
+
+        return get_user_by('login', $username)->ID;
     }
 }

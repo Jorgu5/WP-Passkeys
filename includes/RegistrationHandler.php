@@ -23,10 +23,12 @@ use Webauthn\AuthenticationExtensions\ExtensionOutputCheckerHandler;
 use Webauthn\AuthenticatorAttestationResponse;
 use Webauthn\AuthenticatorAttestationResponseValidator;
 use Webauthn\AuthenticatorSelectionCriteria;
+use Webauthn\Exception\WebauthnException;
 use Webauthn\PublicKeyCredentialCreationOptions;
 use Webauthn\PublicKeyCredentialLoader;
 use Webauthn\PublicKeyCredentialParameters;
 use Webauthn\PublicKeyCredentialSource;
+use WpPasskeys\Exceptions\CredentialException;
 use WpPasskeys\Interfaces\WebAuthnInterface;
 use WpPasskeys\Traits\SingletonTrait;
 use WpPasskeys\utilities as Util;
@@ -54,13 +56,9 @@ class RegistrationHandler implements WebAuthnInterface
      */
     public function storePublicKeyCredentialSource(PublicKeyCredentialSource $publicKeyCredentialSource): void
     {
-        try {
-            $credentialHelper = CredentialHelper::instance();
-            $credentialHelper->createUserWithPkCredentialId($publicKeyCredentialSource->publicKeyCredentialId);
-            $credentialHelper->saveCredentialSource($publicKeyCredentialSource);
-        } catch (Exception $e) {
-            throw new CredentialException($e->getMessage());
-        }
+        $credentialHelper = CredentialHelper::instance();
+        $credentialHelper->createUserWithPkCredentialId($publicKeyCredentialSource->publicKeyCredentialId);
+        $credentialHelper->saveCredentialSource($publicKeyCredentialSource);
     }
 
     /**
@@ -77,7 +75,7 @@ class RegistrationHandler implements WebAuthnInterface
             $algorithmManager                = AlgorithmManager::instance();
             $algorithmManagerKeys           = $algorithmManager->getAlgorithmIdentifiers();
             $publicKeyCredentialParameters = array();
-            $userLogin = SessionHandler::instance()->get('user_login');
+            $userLogin = SessionHandler::instance()->get('user_data')['user_login'];
 
             foreach ($algorithmManagerKeys as $algorithmNumber) {
                 $publicKeyCredentialParameters[] = new PublicKeyCredentialParameters(
@@ -93,7 +91,7 @@ class RegistrationHandler implements WebAuthnInterface
                 $publicKeyCredentialParameters,
             );
 
-            $this->publicKeyCredentialCreationOptions->timeout = get_option('wppk_passkeys_timeout', '30000');
+            $this->publicKeyCredentialCreationOptions->timeout = (int)get_option('wppk_passkeys_timeout', '30000');
             $this->publicKeyCredentialCreationOptions->authenticatorSelection = AuthenticatorSelectionCriteria::create(
                 AuthenticatorSelectionCriteria::AUTHENTICATOR_ATTACHMENT_PLATFORM,
                 AuthenticatorSelectionCriteria::USER_VERIFICATION_REQUIREMENT_REQUIRED,
@@ -134,7 +132,7 @@ class RegistrationHandler implements WebAuthnInterface
             $publicKeyCredential              = $this->publicKeyCredentialLoader->load($data);
             $authenticatorAttestationResponse = $publicKeyCredential->response;
             if (! $authenticatorAttestationResponse instanceof AuthenticatorAttestationResponse) {
-                return new WP_Error('400', 'Invalid AuthenticatorAttestationResponse');
+                wp_redirect(wp_login_url());
             }
             $this->authenticatorAttestationResponse = $authenticatorAttestationResponse;
 
@@ -146,23 +144,27 @@ class RegistrationHandler implements WebAuthnInterface
                 )
             );
 
+            $redirectUrl = !is_user_logged_in() ? Utilities::getRedirectUrl() : '';
+
             Utilities::setAuthCookie(
-                SessionHandler::instance()->get('user_login'),
+                SessionHandler::instance()->get('user_data')['user_login'],
                 null
             );
 
             $response = new WP_REST_Response([
-                'status' => 'Verified',
-                'statusText' => 'Your account has been created. You are being redirect now to dashboard...',
-                'redirectUrl' => !is_user_logged_in() ? Utilities::getRedirectUrl() : '',
-                'pk_credential_id' => $publicKeyCredential->id,
+                'code' => 'verified',
+                'message' => 'Your account has been created. You are being redirect now to dashboard...',
+                'data' => [
+                    'redirectUrl' => $redirectUrl,
+                    'pk_credential_id' => $publicKeyCredential->id,
+                ]
             ], 200);
         } catch (JsonException $e) {
-            $response = new WP_Error(400, $e->getMessage());
-        } catch (Exception $e) {
-            $response = new WP_Error(500, $e->getMessage());
+            $response = new WP_Error('json', $e->getMessage());
+        } catch (CredentialException $e) {
+            $response = new WP_Error('credential-error', $e->getMessage());
         } catch (Throwable $e) {
-            $response = new WP_Error(500, $e->getMessage());
+            $response = new WP_Error('server', $e->getMessage());
         }
 
         return $response;

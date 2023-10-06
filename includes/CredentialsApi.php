@@ -9,27 +9,33 @@ use WpPasskeys\Exceptions\CredentialException;
 
 class CredentialsApi
 {
-
-    /**
-     * @throws CredentialException
-     */
-    public function setUserLogin(WP_REST_Request $request): WP_REST_Response
+    public function setUserData(WP_REST_Request $request): WP_REST_Response
     {
-        $userLogin = $request->get_param('name');
-        if (empty($userLogin)) {
-            throw new CredentialException('No user login provided.');
+        $userData = $request->get_params();
+
+        $userData = array_intersect_key($userData, array_flip(['user_email', 'user_login', 'display_name']));
+
+        $savedData = [];
+
+        if (empty($userData)) {
+            return new WP_REST_Response('Registering with usernameless method', 200);
         }
-        $sanitizedUserLogin = sanitize_text_field($userLogin);
 
-        SessionHandler::instance()->set('user_login', $sanitizedUserLogin);
+        // foreach item in $userData, sanitize and set data in SessionHandler instance
+        foreach ($userData as $userKey => $userValue) {
+            if ($userKey === 'user_email') {
+                $sanitizedValue = sanitize_email($userValue);
+            } else {
+                $sanitizedValue = sanitize_text_field($userValue);
+            }
+            $savedData[$userKey] = $sanitizedValue;
+        }
 
-        $user = get_user_by('login', $sanitizedUserLogin);
+        SessionHandler::instance()->set('user_data', $savedData);
 
-        $response = [
-            'isExistingUser' => (bool)$user
-        ];
+        $savedKeys = implode(', ', array_keys($savedData));
 
-        return new WP_REST_Response($response, 200);
+        return new WP_REST_Response("Successfully saved {$savedKeys} in session", 200);
     }
 
     /**

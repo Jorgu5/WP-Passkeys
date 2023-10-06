@@ -27,7 +27,7 @@ class UserSettings
      */
     public function displayUserPasskeySettings(): void
     {
-        if (!current_user_can('manage_options')) {
+        if (!current_user_can('read')) {
             return;
         }
         echo '<div class="user-passkeys-settings">

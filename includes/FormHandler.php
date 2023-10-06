@@ -42,19 +42,35 @@ class FormHandler
             if (!in_array('username', $this->userDataSettings, true)) {
                 $form = preg_replace('/<p>\s*<label for="user_login">.*?<\/p>/s', '', $form);
             }
-            if (!in_array('username', $this->userDataSettings, true) || !in_array('email', $this->userDataSettings, true)) {
+            if (
+                !in_array('username', $this->userDataSettings, true)
+                || !in_array('email', $this->userDataSettings, true)
+            ) {
                 $form = preg_replace('/<p class="submit">.*?<\/p>/s', '', $form);
             }
         }
 
-        $form = preg_replace('/(autocomplete)="username"/', 'autocomplete="username webauthn"', $form);
+        if (!$this->isRegisterFlow()) {
+            if (!$isPassword) {
+                $form = preg_replace(
+                    '/<div class="user-pass-wrap">.*?<label for="user_pass">.*?<\/div>.*?<\/div>/s',
+                    '',
+                    $form
+                );
+                $form = preg_replace(
+                    '/<p class="submit">.*?<\/p>/s',
+                    '',
+                    $form
+                );
+            }
 
-        if (!$isPassword) {
-            $form = preg_replace('/<div class="user-pass-wrap">.*?<label for="user_pass">.*?<\/div>.*?<\/div>/s', '', $form);
-            // $form = preg_replace('/<form name="loginform" id="loginform"/', '<form name="loginform" id="loginform" class="loginform--passkeys"', $form);
-            $form = preg_replace('/<p class="submit">.*?<\/p>/s', '', $form);
-        } else {
-            $form = preg_replace('/(autocomplete)="current-password"/', 'autocomplete="current-password webauthn"', $form);
+            $form = preg_replace(
+                '/(autocomplete)="current-password"/',
+                'autocomplete="current-password webauthn"',
+                $form
+            );
+
+            $form = preg_replace('/(autocomplete)="username"/', 'autocomplete="username webauthn"', $form);
         }
 
 
@@ -78,7 +94,7 @@ class FormHandler
     {
 
         echo "
-        <button class=\"button button-primary passkeys-button {$this->passkeysButtonClass}\">" .
+        <button type=\"submit\" class=\"button button-primary passkeys-button {$this->passkeysButtonClass}\">" .
              __('Continue', 'wp-passkeys') .
              "</button>
         ";
@@ -86,11 +102,10 @@ class FormHandler
 
     private function passkeysDisplayNameInput(): string
     {
-        return '
-            <div class="passkeys-login__display-name">
-                <label for="passkeys-display-name">' . __('Display name', 'wp-passkeys') . '</label>
-                <input type="text" id="passkeys-display-name" name="passkeys-display-name" required>
-            </div>
+        return '<p>
+            <label for="display_name">' . __('Display name', 'wp-passkeys') . '</label>
+            <input type="text" id="display_name" name="display_name" required="required" autocomplete="name">
+            </p>
         ';
     }
 

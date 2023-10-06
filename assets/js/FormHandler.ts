@@ -1,47 +1,52 @@
 import {RegistrationHandler} from "./RegistrationHandler";
-import {AuthenticationHandler} from "./AuthenticationHandler";
-import {UserLoginResponse} from "./AuthenticatorInterface";
+import {AuthenticationHandler} from "./authentication/AuthenticationHandler";
 import {Utilities} from "./Utilities";
+import {userData} from "./WebauthnTypes";
 
 export class FormHandler {
     private loginForm: HTMLFormElement | null = document.querySelector('#loginform');
     private registerForm: HTMLFormElement | null = document.querySelector('#registerform');
-    private registerSuccessNotification: HTMLElement | null = document.querySelector('.register-success-notification');
-    private registerErrorNotification: HTMLElement | null = document.querySelector('.register-error-notification');
     private passkeysButton: HTMLButtonElement | null = document.querySelector('.passkeys-button');
-    private authHandler: AuthenticationHandler;
-    private regHandler: RegistrationHandler;
 
-    constructor() {
-        this.authHandler = new AuthenticationHandler(this.notify.bind(this));
-        this.regHandler = new RegistrationHandler(this.notify.bind(this));
+    private setNotification(message: string, isSuccess: boolean, target: HTMLElement): void {
+        const notifyWrapper = document.querySelector('#login') as HTMLElement;
+        const notification = document.createElement('p');
+        notification.classList.add('message');
+        if(isSuccess) {
+            notification.classList.add('success');
+        } else {
+            notification.classList.add('error');
+        }
+
+        notification.innerText = message;
+
+        notifyWrapper.insertBefore(notification, target);
     }
 
-    public notify(isSuccess: boolean, message: string): void {
-        if (isSuccess && this.registerSuccessNotification) {
-            this.registerSuccessNotification.innerHTML = message;
-        } else if (!isSuccess && this.registerErrorNotification) {
-            this.registerErrorNotification.innerHTML = message;
+    async handleLogin(event: Event): Promise<void> {
+        event.preventDefault();
+        try {
+            if (this.loginForm) {
+                const authHandler = new AuthenticationHandler(this.setNotification.bind(this))
+                const authInit = await authHandler.init(false);
+                await authHandler.start(authInit);
+            }
+        } catch (error: any) {
+            console.error("An error occurred during form submission:", error);
         }
     }
 
-    async handleFormSubmit(event: Event): Promise<void> {
-        event.preventDefault();
-        try {
-            Utilities.setUserLogin().then(async () => {
-                console.log('set user login');
-                console.log(this.loginForm);
-                if (this.loginForm) {
-                    console.log('login');
-                    const authInit = await this.authHandler.init(false);
-                    await this.authHandler.start(authInit);
-                } else if (this.registerForm) {
-                    console.log('register');
-                    await this.regHandler.start();
-                }
-            })
-        } catch (error: any) {
-            console.error("An error occurred during form submission:", error);
+    async handleRegistration(): Promise<void> {
+        const userDataInputs = this.registerForm?.querySelectorAll('input') as NodeListOf<HTMLInputElement>;
+        if(this.validatedRegisterFields(userDataInputs)) {
+            try {
+                Utilities.setUserData(this.getAllRegisterFormInputValues(userDataInputs)).then(async () => {
+                    const regHandler = new RegistrationHandler(this.setNotification.bind(this));
+                    await regHandler.start();
+                });
+            } catch (error: any) {
+                console.error("An error occurred during form submission:", error);
+            }
         }
     }
 
@@ -53,7 +58,8 @@ export class FormHandler {
             this.appendToForms(wrapper);
         }
 
-        this.passkeysButton?.addEventListener('click', this.handleFormSubmit.bind(this));
+            this.passkeysButton?.addEventListener('click', this.handleLogin.bind(this));
+            this.passkeysButton?.addEventListener('click', this.handleRegistration.bind(this));
     }
 
     private isAnyFormPresentAndButtonsExist(
@@ -87,6 +93,34 @@ export class FormHandler {
         if (this.registerForm) {
             this.registerForm.appendChild(wrapper);
         }
+    }
+
+    private getAllRegisterFormInputValues(userDataInputs: NodeListOf<HTMLInputElement>): userData {
+        const userData: userData = {};
+
+        userDataInputs.forEach((input) => {
+            const userKey = input.name as keyof userData;
+            if (userKey) {
+                userData[userKey] = input.value;
+            }
+        });
+
+        return userData;
+    }
+
+    private validatedRegisterFields(userDataInputs: NodeListOf<HTMLInputElement>): boolean {
+        const requiredFields = Array.from(userDataInputs).filter((field) => field.required);
+        const emptyFields = requiredFields.filter((field) => !field.value);
+        emptyFields.forEach((field) => {
+            field.classList.add('error');
+        });
+
+        if (emptyFields.length) {
+            this.setNotification('Please fill in all required fields.', false, this.registerForm as HTMLElement);
+            return false;
+        }
+
+        return true;
     }
 }
 

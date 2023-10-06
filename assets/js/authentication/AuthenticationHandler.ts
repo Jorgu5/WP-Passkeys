@@ -1,6 +1,6 @@
 import {AuthenticationResponseJSON, PublicKeyCredentialRequestOptionsJSON} from "@simplewebauthn/typescript-types";
 import { startAuthentication, browserSupportsWebAuthn, browserSupportsWebAuthnAutofill, platformAuthenticatorIsAvailable } from "@simplewebauthn/browser";
-import {AuthenticatorInterface, NotifyFunctionType} from "./AuthenticatorInterface";
+import {AuthenticatorInterface, NotifyFunctionType} from "../WebauthnTypes";
 
 export class AuthenticationHandler implements AuthenticatorInterface {
     private readonly notify: NotifyFunctionType;
@@ -38,7 +38,15 @@ export class AuthenticationHandler implements AuthenticatorInterface {
     async init(isAutofill: boolean): Promise<AuthenticationResponseJSON> {
         try {
             const authOptions = await this.generateOptions();
-            return await startAuthentication(authOptions, isAutofill);
+            console.log(authOptions);
+            const authResp = await startAuthentication(authOptions, isAutofill);
+            console.log(authResp);
+
+            if (authResp) {
+                const { id } = authResp;
+                await this.start(authResp, id);
+                console.info('User successfully ID verified on server');
+            }
         } catch (error: any) {
             this.notify(false, `Error: ${error.message || error}`);
             if(error.name === 'AbortError') {
@@ -47,6 +55,8 @@ export class AuthenticationHandler implements AuthenticatorInterface {
             }
             throw error;
         }
+
+        return Promise.resolve(null as unknown as AuthenticationResponseJSON);
     }
 
     async start(authResp: AuthenticationResponseJSON, id?: string): Promise<void> {
@@ -67,19 +77,3 @@ export class AuthenticationHandler implements AuthenticatorInterface {
         this.notify(!!verificationJSON?.status, message);
     }
 }
-
-const authHandler = new AuthenticationHandler((success: boolean, message: string) => {
-    const notification = document.querySelector('.notification');
-    if (notification) {
-        notification.innerHTML = message;
-    }
-})
-
-authHandler.init(true).then((authResp: AuthenticationResponseJSON) => {
-    if(authResp) {
-        const {id} = authResp;
-        authHandler.start(authResp, id).then(() => {
-            console.log('User ID verified on server');
-        });
-    }
-});

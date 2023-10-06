@@ -40,7 +40,7 @@ class RestApiHandler extends AbstractApiHandler
         $this->registerRoute(self::AUTH_NAMESPACE . '/options', 'GET', [$this->auth, self::OPTIONS_CALLBACK]);
         $this->registerRoute(self::AUTH_NAMESPACE . '/verify', 'POST', [$this->auth, self::VERIFY_CALLBACK]);
         // Other
-        $this->registerRoute(self::CREDENTIAL_NAMESPACE . '/user/set', 'POST', [$this->creds, 'setUserLogin']);
+        $this->registerRoute(self::CREDENTIAL_NAMESPACE . '/user', 'POST', [$this->creds, 'setUserData']);
         $this->registerRoute(
             self::CREDENTIAL_NAMESPACE . '/user/remove',
             'DELETE',

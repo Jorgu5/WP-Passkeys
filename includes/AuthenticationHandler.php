@@ -11,6 +11,7 @@ namespace WpPasskeys;
 use Cose\Algorithm\Manager;
 use Exception;
 use JsonException;
+use Throwable;
 use Webauthn\AttestationStatement\AttestationObjectLoader;
 use Webauthn\AttestationStatement\AttestationStatementSupportManager;
 use Webauthn\AttestationStatement\NoneAttestationStatementSupport;
@@ -94,7 +95,7 @@ class AuthenticationHandler implements WebAuthnInterface
         return $this
             ->credentialHelper
             ->findAllForUserEntity(Utilities::createUserEntity(
-                SessionHandler::instance()->get('user_login')
+                SessionHandler::instance()->get('user_data')['user_login']
             ));
     }
 
@@ -137,7 +138,7 @@ class AuthenticationHandler implements WebAuthnInterface
                 $userId = $this->credentialHelper->getUserByCredentialId($request->get_param('id'));
                 Utilities::setAuthCookie(null, $userId);
             } else {
-                Utilities::setAuthCookie(SessionHandler::instance()->get('user_login'));
+                Utilities::setAuthCookie(SessionHandler::instance()->get('user_data')['user_login']);
             }
 
             $response = new WP_REST_Response(array(
@@ -145,10 +146,10 @@ class AuthenticationHandler implements WebAuthnInterface
                 'statusText' => 'Successfully verified the credential.',
                 'redirectUrl' => Utilities::getRedirectUrl(),
             ), 200);
-        } catch (JsonException | Exception $e) {
+        } catch (JsonException | CredentialException $e) {
             $response = new WP_Error('Invalid_response', $e->getMessage(), array( 'status' => 400 ));
-        } catch (\Throwable $e) {
-            $response = new WP_Error('Invalid_response', $e->getMessage(), array( 'status' => 400 ));
+        } catch (Throwable $e) {
+            $response = new WP_Error('Invalid_response', $e->getMessage(), array( 'status' => 500 ));
         }
 
         return $response;

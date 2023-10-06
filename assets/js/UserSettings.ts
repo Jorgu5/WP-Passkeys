@@ -1,6 +1,6 @@
 import {RegistrationHandler} from "./RegistrationHandler";
 import {Utilities} from "./Utilities";
-import {VerificationResponse} from "./AuthenticatorInterface";
+import {VerificationResponse} from "./WebauthnTypes";
 
 class UserSettings {
 
@@ -43,11 +43,9 @@ class UserSettings {
     public attachEventListeners(): void {
         if (this.passkeysRegisterButton) {
             this.passkeysRegisterButton.addEventListener('click', () => {
-                Utilities.setUserLogin().then(() => {
+                Utilities.setUserData().then(() => {
                     this.startRegistration().then((r) => {
                         this.notify(true, 'Passkey has been registered. You can now login without password!');
-                        console.log(r);
-                        console.log(r.pk_credential_id);
                         if (this.passkeyRow) {
                             this.passkeyRow.innerHTML = <string>r.pk_credential_id;
                         }

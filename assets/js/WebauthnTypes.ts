@@ -3,17 +3,21 @@ import {
     PublicKeyCredentialRequestOptionsJSON
 } from "@simplewebauthn/typescript-types";
 
-export type NotifyFunctionType = (success: boolean, message: string) => void;
+export type NotifyFunctionType = (message: string, isSuccess: boolean, target: HTMLElement) => void;
 
 export type VerificationResponse = {
-    status?: string,
-    statusText?: string,
-    redirectUrl?: string,
-    pk_credential_id?: string
+    code: string,
+    message: string,
+    data?: {
+        redirectUrl?: string,
+        pk_credential_id?: string,
+    }
 }
 
-export type UserLoginResponse = {
-    isExistingUser?: boolean
+export type userData = {
+    user_login?: string,
+    user_email?: string,
+    display_name?: string,
 }
 
 export interface AuthenticatorInterface {

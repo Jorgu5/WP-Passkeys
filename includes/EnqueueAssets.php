@@ -39,13 +39,15 @@ class EnqueueAssets
             true
         );
 
-        wp_enqueue_script(
-            'passkeys-auth-script',
-            $this->getAssetsPath() . 'js/AuthenticationHandler.js',
-            array(),
-            WP_PASSKEYS_VERSION,
-            false,
-        );
+        if (!isset($_GET['action']) || ($_GET['action'] !== 'register')) {
+            wp_enqueue_script(
+                'passkeys-auth-script',
+                $this->getAssetsPath() . 'js/authentication/index.js',
+                array(),
+                WP_PASSKEYS_VERSION,
+                false,
+            );
+        }
     }
 
     public function enqueueUserProfileScript(): void

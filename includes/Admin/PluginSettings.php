@@ -146,7 +146,7 @@ class PluginSettings
                 ),
             ]
         );
-        register_setting('passkeys-options', 'wppk_passkeys_timeout', 'intval');
+        register_setting('passkeys-options', 'wppk_passkeys_timeout');
     }
 
     public function settingsGeneralSectionCallback(): void

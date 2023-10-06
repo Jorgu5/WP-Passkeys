@@ -3,7 +3,7 @@ import {
     RegistrationResponseJSON
 } from "@simplewebauthn/typescript-types";
 import { startRegistration } from "@simplewebauthn/browser";
-import {NotifyFunctionType, VerificationResponse} from "./AuthenticatorInterface";
+import {NotifyFunctionType, VerificationResponse} from "./WebauthnTypes";
 
 export class RegistrationHandler {
     private readonly notify: NotifyFunctionType;
@@ -42,27 +42,33 @@ export class RegistrationHandler {
         try {
             const startResp: PublicKeyCredentialCreationOptionsJSON = await this.generateOptions();
             const attResp: RegistrationResponseJSON = await startRegistration(startResp);
-            let verificationJSON: VerificationResponse = {};
-
+            let verificationJSON: VerificationResponse = {
+                code: '',
+                message: '',
+            }
             try {
                 verificationJSON = await this.verify(attResp);
-                if (verificationJSON.redirectUrl) {
-                    window.location.href = verificationJSON.redirectUrl;
+                console.log(verificationJSON);
+                if (verificationJSON.data?.redirectUrl) {
+                    window.location.href = verificationJSON.data.redirectUrl;
                 }
             } catch (error: any) {
                 console.error("Error in registration verification:", error);
             }
 
-            const message = verificationJSON?.status === 'Verified'
-                ? 'Registration successful'
-                : 'Registration failed';
+            const notificationTarget = document.querySelector('#registerform') as HTMLElement;
 
-            this.notify(!!verificationJSON?.status, message);
+            if(verificationJSON?.code === 'verified') {
+                this.notify(verificationJSON?.message, true, notificationTarget);
+            }
+            
+            if(verificationJSON?.code === 'credential-error') {
+                this.notify(verificationJSON?.message, false, notificationTarget);
+            }
 
             return verificationJSON;
 
         } catch (error: any) {
-            this.notify(false, `Error: ${error.message || error}`);
             throw error;
         }
     }
