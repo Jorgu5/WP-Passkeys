@@ -46,8 +46,7 @@ RUN echo "#!/bin/bash" > /usr/local/bin/install-wp-tests \
         && echo "*** install-wp-tests installed"
 
 # Configure Xdebug
-RUN echo "zend_extension=$(find /usr/local/lib/php/extensions/ -name xdebug.so)" >> /usr/local/etc/php/conf.d/xdebug.ini \
-        && echo "xdebug.mode=debug" >> /usr/local/etc/php/conf.d/xdebug.ini \
+RUN echo "xdebug.mode=debug" >> /usr/local/etc/php/conf.d/xdebug.ini \
         && echo "xdebug.start_with_request=yes" >> /usr/local/etc/php/conf.d/xdebug.ini \
         && echo "xdebug.client_host=host.docker.internal" >> /usr/local/etc/php/conf.d/xdebug.ini \
         && echo "xdebug.client_port=9003" >> /usr/local/etc/php/conf.d/xdebug.ini \
