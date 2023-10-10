@@ -4,17 +4,16 @@ parameters:
     - includes/
   exceptions:
     uncheckedExceptionClasses:
-      - 'LogicException'  # Mark LogicException and child classes as unchecked
+      - 'LogicException'
     uncheckedExceptionRegexes:
-      - '#^Exception$#'  # General Exception is unchecked, but subclasses are still checked
-      - '#^WpPasskeys\\Exceptions\\#'  # Exceptions from WpPasskeys\Exceptions namespace are unchecked
+      - '#^Exception$#'
+      - '#^WpPasskeys\\Exceptions\\#'
     checkedExceptionClasses:
-      - 'RuntimeException'  # Mark RuntimeException and child classes as checked
+      - 'RuntimeException'
     checkedExceptionRegexes:
-      - '#^WpPasskeys\\CheckedExceptions\\#'  # Exceptions from WpPasskeys\CheckedExceptions namespace are checked
+      - '#^WpPasskeys\\CheckedExceptions\\#'
     check:
-      missingCheckedExceptionInThrows: true  # Enforce declaring thrown checked exceptions in @throws
-      tooWideThrowType: true  # Report extra exceptions in @throws that aren’t actually thrown
-      reportUncheckedExceptionDeadCatch: false  # Disable the dead catch reporting for unchecked exception
-  # If you set this to false, you need to explicitly add @throws void for methods that don't throw exceptions
-  implicitThrows: false
+      missingCheckedExceptionInThrows: true
+      tooWideThrowType: true
+    reportUncheckedExceptionDeadCatch: false
+
