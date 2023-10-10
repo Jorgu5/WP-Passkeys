@@ -1,16 +1,23 @@
 <?xml version="1.0"?>
-<phpunit
-        bootstrap="tests/bootstrap.php"
-        backupGlobals="false"
-        colors="true"
-        convertErrorsToExceptions="true"
-        convertNoticesToExceptions="true"
-        convertWarningsToExceptions="true"
->
-  <testsuites>
-    <testsuite name="sample">
-      <directory prefix="test-" suffix=".php">./tests/</directory>
-      <!-- <exclude>./tests/test-samplejG.php</exclude> -->
-    </testsuite>
-  </testsuites>
+<phpunit bootstrap="tests/bootstrap.php"
+         backupGlobals="false"
+         backupStaticAttributes="false"
+         colors="true"
+         verbose="true"
+         convertErrorsToExceptions="true"
+         convertNoticesToExceptions="true"
+         convertWarningsToExceptions="true"
+         processIsolation="false"
+         stopOnFailure="false">
+          <php>
+            <env name="TEST_SUITE" value="unit"/>
+          </php>
+          <testsuites>
+            <testsuite name="Unit">
+              <directory suffix=".php">./tests/unit</directory>
+            </testsuite>
+            <testsuite name="Integration">
+              <directory suffix=".php">./tests/integration</directory>
+            </testsuite>
+          </testsuites>
 </phpunit>
