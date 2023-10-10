@@ -1,18 +1,16 @@
 <?php
 
-/**
- * General plugin functionality.
- *
- * @package WpPasskeys
- * @since 0.1.0
- */
-
 namespace WpPasskeys;
 
-use Psalm\Internal\Cli\Plugin;
 use WpPasskeys\Admin\PluginSettings;
 use WpPasskeys\Admin\UserSettings;
-use WpPasskeys\Traits\SingletonTrait;
+use WpPasskeys\Ceremonies\AuthEndpoints;
+use WpPasskeys\Ceremonies\RegisterEndpoints;
+use WpPasskeys\Credentials\CredentialEntity;
+use WpPasskeys\Credentials\CredentialsEndpoints;
+use WpPasskeys\Credentials\CredentialHelper;
+use WpPasskeys\Form\FormHandler;
+use WpPasskeys\RestApi\RestApiHandler;
 
 require_once ABSPATH . 'wp-admin/includes/upgrade.php';
 
@@ -21,48 +19,51 @@ require_once ABSPATH . 'wp-admin/includes/upgrade.php';
  */
 class PasskeysPlugin
 {
-    use SingletonTrait;
+    private RestApiHandler $restApiHandler;
 
-    /**
-     * Hook into actions and filters.
-     */
-    private function initHooks(): void
+    public function __construct(RestApiHandler $restApiHandler)
     {
-        EnqueueAssets::instance()->init();
-        FormHandler::instance()->init();
-        // Register the REST API routes.
+        $this->restApiHandler = $restApiHandler;
+    }
+
+    public static function make(): self
+    {
         $restApiHandler = new RestApiHandler(
-            new AuthenticationHandler(),
-            new RegistrationHandler(),
-            new CredentialsApi()
+            new AuthEndpoints(),
+            new RegisterEndpoints(new CredentialHelper(), new CredentialEntity()),
+            new CredentialsEndpoints()
         );
-        $restApiHandler->init();
 
-        // Admin
-        PluginSettings::instance()->init();
-        UserSettings::instance()->init();
+        return new self($restApiHandler);
     }
 
-    /**
-     * Activation hook.
-     */
-    public static function activate(): void
-    {
-        Utilities::setPluginVersion();
-    }
-
-    /**
-     * Run the plugin.
-     */
     public function run(): void
     {
-        $this->initHooks();
-        $this->createCredentialsTable();
-        $this->setDefaultPluginOptions();
-        self::activate();
+        $this->registerHooks();
+        $this->activate();
     }
 
-    public function createCredentialsTable(): void
+    private function registerHooks(): void
+    {
+        // Register ceremonies
+        $this->restApiHandler::register($this->restApiHandler);
+        // Register form and front-end
+        EnqueueAssets::register();
+        FormHandler::register();
+        // Register admin
+        PluginSettings::register();
+        UserSettings::register();
+    }
+
+    public function activate(): void
+    {
+        $this->createCredentialsTable();
+        $this->setDefaultPluginOptions();
+        $this->setPluginVersion();
+    }
+
+
+    private function createCredentialsTable(): void
     {
         global $wpdb;
 
@@ -80,7 +81,7 @@ class PasskeysPlugin
         dbDelta($sql);
     }
 
-    public function setDefaultPluginOptions(): void
+    private function setDefaultPluginOptions(): void
     {
         $this->setDefaultOption('wppk_require_userdata', []);
         $this->setDefaultOption('wppk_passkeys_redirect', admin_url());
@@ -93,6 +94,17 @@ class PasskeysPlugin
     {
         if (get_option($optionName) === false) {
             update_option($optionName, $defaultValue);
+        }
+    }
+
+    private function setPluginVersion(): void
+    {
+        if (! function_exists('get_plugin_data')) {
+            require_once ABSPATH . 'wp-admin/includes/plugin.php';
+        }
+        $plugin_data = get_plugin_data(__FILE__);
+        if (! defined('WP_PASSKEYS_VERSION')) {
+            define('WP_PASSKEYS_VERSION', $plugin_data['Version']);
         }
     }
 }

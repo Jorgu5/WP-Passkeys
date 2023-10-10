@@ -6,15 +6,13 @@
  * @package WpPassKeys
  */
 
-namespace WpPasskeys;
+namespace WpPasskeys\Ceremonies;
 
-use Cose\Algorithm\Manager;
 use Exception;
 use JsonException;
 use Throwable;
 use Webauthn\AttestationStatement\AttestationObjectLoader;
 use Webauthn\AttestationStatement\AttestationStatementSupportManager;
-use Webauthn\AttestationStatement\NoneAttestationStatementSupport;
 use Webauthn\AuthenticationExtensions\ExtensionOutputCheckerHandler;
 use Webauthn\AuthenticatorAssertionResponse;
 use Webauthn\AuthenticatorAssertionResponseValidator;
@@ -22,15 +20,18 @@ use Webauthn\Exception\InvalidDataException;
 use Webauthn\PublicKeyCredential;
 use Webauthn\PublicKeyCredentialLoader;
 use Webauthn\PublicKeyCredentialRequestOptions;
-use Webauthn\PublicKeyCredentialUserEntity;
 use WP_Error;
 use WP_REST_Request;
 use WP_REST_Response;
 use WP_User;
+use WpPasskeys\AlgorithmManager\AlgorithmManager;
+use WpPasskeys\Credentials\CredentialHelper;
+use WpPasskeys\Credentials\SessionHandler;
 use WpPasskeys\Exceptions\CredentialException;
 use WpPasskeys\Interfaces\WebAuthnInterface;
+use WpPasskeys\Utilities;
 
-class AuthenticationHandler implements WebAuthnInterface
+class AuthEndpoints implements WebAuthnInterface
 {
     public readonly CredentialHelper $credentialHelper;
     public readonly PublicKeyCredential $publicKeyCredential;
@@ -47,9 +48,9 @@ class AuthenticationHandler implements WebAuthnInterface
                 AttestationStatementSupportManager::create()
             )
         );
-        $this->credentialHelper = CredentialHelper::instance();
+        // Temporary create PK Source but should be deprecated soon
         $this->authenticatorAssertionResponseValidator = new AuthenticatorAssertionResponseValidator(
-            $this->credentialHelper,
+            null,
             null,
             ExtensionOutputCheckerHandler::create(),
             null,
@@ -59,7 +60,7 @@ class AuthenticationHandler implements WebAuthnInterface
     /**
      * @param WP_REST_Request $request *
      *
-     * @throws \Exception
+     * @throws Exception
      */
     public function createPublicKeyCredentialOptions(WP_REST_Request $request): WP_REST_Response
     {
@@ -74,7 +75,7 @@ class AuthenticationHandler implements WebAuthnInterface
                 PublicKeyCredentialRequestOptions::USER_VERIFICATION_REQUIREMENT_REQUIRED;
             $publicKeyCredentialRequestOptions->rpId = Utilities::getHostname();
 
-            SessionHandler::instance()->set('pk_credential_request_options', $publicKeyCredentialRequestOptions);
+            SessionHandler::set('pk_credential_request_options', $publicKeyCredentialRequestOptions);
 
             return new WP_REST_Response($publicKeyCredentialRequestOptions, 200);
         } catch (Exception $e) {
@@ -83,34 +84,16 @@ class AuthenticationHandler implements WebAuthnInterface
     }
 
     /**
-     * Retrieves the allowed credentials for a user entity.
-     *
-     * @return array The array of allowed credentials.
-     * @throws InvalidDataException
-     * @throws JsonException
-     * @throws CredentialException
-     */
-    private function getAllowedCredentials(): array
-    {
-        return $this
-            ->credentialHelper
-            ->findAllForUserEntity(Utilities::createUserEntity(
-                SessionHandler::instance()->get('user_data')['user_login']
-            ));
-    }
-
-    /**
      * Generate the function comment for the response_authenticator function.
      *
      * @param WP_REST_Request $request The REST request object.
-     * @throws WP_Error If the response is invalid.
      * @return WP_REST_Response|WP_Error The REST response or error.
      */
     public function verifyPublicKeyCredentials(WP_REST_Request $request): WP_REST_Response|WP_Error
     {
         try {
             $this->publicKeyCredential = $this->publicKeyCredentialLoader->load($request->get_body());
-            $authenticatorAssertionResponse = $this->publicKeyCredential->getResponse();
+            $authenticatorAssertionResponse = $this->publicKeyCredential->response;
             if (! $authenticatorAssertionResponse instanceof AuthenticatorAssertionResponse) {
                 return new WP_Error(
                     'Invalid_response',
@@ -120,25 +103,25 @@ class AuthenticationHandler implements WebAuthnInterface
             }
 
             $this->authenticatorAssertionResponseValidator::create(
-                $this->credentialHelper,
+                new CredentialHelper(),
                 null,
                 ExtensionOutputCheckerHandler::create(),
-                AlgorithmManager::instance()->init(),
+                AlgorithmManager::init(),
                 null,
             )->check(
                 $request->get_param('rawId'),
                 $authenticatorAssertionResponse,
-                SessionHandler::instance()->get('pk_credential_request_options'),
+                SessionHandler::get('pk_credential_request_options'),
                 Utilities::getHostname(),
                 $authenticatorAssertionResponse->userHandle,
                 ['localhost']
             );
 
             if ($request->has_param('id')) {
-                $userId = $this->credentialHelper->getUserByCredentialId($request->get_param('id'));
+                $userId = CredentialHelper::getUserByCredentialId($request->get_param('id'));
                 Utilities::setAuthCookie(null, $userId);
             } else {
-                Utilities::setAuthCookie(SessionHandler::instance()->get('user_data')['user_login']);
+                Utilities::setAuthCookie(SessionHandler::get('user_data')['user_login']);
             }
 
             $response = new WP_REST_Response(array(

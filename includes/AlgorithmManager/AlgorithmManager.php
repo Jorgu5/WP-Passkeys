@@ -10,7 +10,7 @@
 
 declare(strict_types=1);
 
-namespace WpPasskeys;
+namespace WpPasskeys\AlgorithmManager;
 
 use Cose\Algorithm\Algorithm;
 use Cose\Algorithm\Manager;
@@ -27,24 +27,21 @@ use Cose\Algorithm\Signature\RSA\RS256;
 use Cose\Algorithm\Signature\RSA\RS384;
 use Cose\Algorithm\Signature\RSA\RS512;
 use InvalidArgumentException;
-use WpPasskeys\Traits\SingletonTrait;
 
 /**
  * Algorithm Manager for WP Pass Keys.
  */
-class AlgorithmManager
+class AlgorithmManager implements AlgorithmManagerInterface
 {
-    use SingletonTrait;
-
     /**
      * @var array
      */
-    private array $algorithms = [];
+    private static array $algorithms = [];
 
     /**
      * Constructor for the class.
      */
-    public function init(): Manager
+    public static function init(): Manager
     {
         return Manager::create()->add(
             ES256::create(),
@@ -67,7 +64,7 @@ class AlgorithmManager
      *
      * @return array The algorithm manager instance.
      */
-    public function getAlgorithmIdentifiers(): array
+    public static function getAlgorithmIdentifiers(): array
     {
         return array(
             ES256::identifier()  => -7,  // ECDSA w/ SHA-256
@@ -90,23 +87,23 @@ class AlgorithmManager
      * @return Algorithm
      * @throws InvalidArgumentException
      */
-    public function get(string $identifier): Algorithm
+    public static function get(string $identifier): Algorithm
     {
-        if (!$this->has($identifier)) {
+        if (!self::has($identifier)) {
             throw new InvalidArgumentException('Unsupported algorithm');
         }
 
         // Access the algorithms using the $identifier as a key
-        return $this->algorithms[$identifier];
+        return self::$algorithms[$identifier];
     }
 
     /**
      * @param string $identifier
      * @return bool
      */
-    public function has(string $identifier): bool
+    public static function has(string $identifier): bool
     {
         // Check if the algorithm exists in the array
-        return array_key_exists($identifier, $this->algorithms);
+        return array_key_exists($identifier, self::$algorithms);
     }
 }

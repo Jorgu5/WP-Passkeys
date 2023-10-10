@@ -2,10 +2,11 @@ import {AuthenticationResponseJSON, PublicKeyCredentialRequestOptionsJSON} from 
 import { startAuthentication, browserSupportsWebAuthn, browserSupportsWebAuthnAutofill, platformAuthenticatorIsAvailable } from "@simplewebauthn/browser";
 import {AuthenticatorInterface, NotifyFunctionType} from "../WebauthnTypes";
 
-export class AuthenticationHandler implements AuthenticatorInterface {
-    private readonly notify: NotifyFunctionType;
+export default class Authentication implements AuthenticatorInterface {
+    private loginForm: HTMLFormElement | null = document.querySelector('#loginform');
+    private readonly notify: NotifyFunctionType | undefined;
 
-    constructor(notifyFunction: NotifyFunctionType) {
+    constructor(notifyFunction?: NotifyFunctionType) {
         this.notify = notifyFunction;
     }
 
@@ -38,9 +39,7 @@ export class AuthenticationHandler implements AuthenticatorInterface {
     async init(isAutofill: boolean): Promise<AuthenticationResponseJSON> {
         try {
             const authOptions = await this.generateOptions();
-            console.log(authOptions);
             const authResp = await startAuthentication(authOptions, isAutofill);
-            console.log(authResp);
 
             if (authResp) {
                 const { id } = authResp;
@@ -48,7 +47,9 @@ export class AuthenticationHandler implements AuthenticatorInterface {
                 console.info('User successfully ID verified on server');
             }
         } catch (error: any) {
-            this.notify(false, `Error: ${error.message || error}`);
+            if(this.loginForm) {
+                this.notify(`Error: ${error.message || error}`, false, this.loginForm);
+            }
             if(error.name === 'AbortError') {
                 console.warn(error.message);
                 return Promise.resolve(null as unknown as AuthenticationResponseJSON);
@@ -74,6 +75,8 @@ export class AuthenticationHandler implements AuthenticatorInterface {
             ? 'Authentication successful'
             : 'Authentication failed';
 
-        this.notify(!!verificationJSON?.status, message);
+        if(this.loginForm) {
+            this.notify(message, !!verificationJSON?.status, this.loginForm);
+        }
     }
 }

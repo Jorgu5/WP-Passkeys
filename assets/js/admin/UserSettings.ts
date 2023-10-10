@@ -1,8 +1,7 @@
-import {RegistrationHandler} from "./RegistrationHandler";
-import {Utilities} from "./Utilities";
-import {VerificationResponse} from "./WebauthnTypes";
+import Registration from "../registration/Registration";
+import {VerificationResponse} from "../WebauthnTypes";
 
-class UserSettings {
+export default class UserSettings {
 
     private readonly registerSuccessNotification: HTMLElement | null = document.querySelector('.register-success-notification');
     private readonly registerErrorNotification: HTMLElement | null = document.querySelector('.register-error-notification');
@@ -12,7 +11,7 @@ class UserSettings {
 
 
     async startRegistration(): Promise<VerificationResponse> {
-        const regHandler = new RegistrationHandler(this.notify.bind(this));
+        const regHandler = new Registration();
         return await regHandler.start();
     }
 
@@ -43,14 +42,12 @@ class UserSettings {
     public attachEventListeners(): void {
         if (this.passkeysRegisterButton) {
             this.passkeysRegisterButton.addEventListener('click', () => {
-                Utilities.setUserData().then(() => {
-                    this.startRegistration().then((r) => {
-                        this.notify(true, 'Passkey has been registered. You can now login without password!');
-                        if (this.passkeyRow) {
-                            this.passkeyRow.innerHTML = <string>r.pk_credential_id;
-                        }
-                    })
-                });
+                this.startRegistration().then((r) => {
+                    this.notify(true, 'Passkey has been registered. You can now login without password!');
+                    if (this.passkeyRow) {
+                        this.passkeyRow.innerHTML = <string>r.pk_credential_id;
+                    }
+                })
             });
         }
 

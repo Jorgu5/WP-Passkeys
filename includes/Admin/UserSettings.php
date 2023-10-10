@@ -2,24 +2,23 @@
 
 namespace WpPasskeys\Admin;
 
-use phpDocumentor\Reflection\Types\Callable_;
-use Webauthn\Exception\InvalidDataException;
-use WpPasskeys\Exceptions\CredentialException;
-use WpPasskeys\Traits\SingletonTrait;
-use WpPasskeys\CredentialHelper;
-
 class UserSettings
 {
-    use SingletonTrait;
+    private ?string $pkCredentialId;
 
-    private readonly string $pkCredentialId;
-
-    public function init(): void
+    public function __construct()
     {
-        add_action('show_user_profile', [$this, 'displayUserPasskeySettings'], 1);
-        add_action('edit_user_profile', [$this, 'displayAdminPasskeySettings'], 1);
-        add_action('admin_notices', [$this, 'renderAdminNotice']);
-        add_action('init', [$this, 'getPkCredentialId']);
+        $this->pkCredentialId = '';
+    }
+
+    public static function register(): void
+    {
+        $userSettings = new self();
+
+        add_action('show_user_profile', [$userSettings, 'displayUserPasskeySettings'], 1);
+        add_action('edit_user_profile', [$userSettings, 'displayAdminPasskeySettings'], 1);
+        add_action('admin_notices', [$userSettings, 'renderAdminNotice']);
+        add_action('init', [$userSettings, 'getPkCredentialId']);
     }
 
     /**

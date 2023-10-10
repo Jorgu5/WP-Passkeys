@@ -1,6 +1,6 @@
 <?php
 
-namespace WpPasskeys;
+namespace WpPasskeys\RestApi;
 
 abstract class AbstractApiHandler
 {

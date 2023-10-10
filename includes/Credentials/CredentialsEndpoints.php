@@ -1,15 +1,14 @@
 <?php
 
-namespace WpPasskeys;
+namespace WpPasskeys\Credentials;
 
-use WP_Error;
 use WP_REST_Request;
 use WP_REST_Response;
 use WpPasskeys\Exceptions\CredentialException;
 
-class CredentialsApi
+class CredentialsEndpoints implements CredentialsEndpointsInterface
 {
-    public function setUserData(WP_REST_Request $request): WP_REST_Response
+    public function setUserCredentials(WP_REST_Request $request): WP_REST_Response
     {
         $userData = $request->get_params();
 
@@ -31,7 +30,7 @@ class CredentialsApi
             $savedData[$userKey] = $sanitizedValue;
         }
 
-        SessionHandler::instance()->set('user_data', $savedData);
+        SessionHandler::set('user_data', $savedData);
 
         $savedKeys = implode(', ', array_keys($savedData));
 
@@ -43,6 +42,8 @@ class CredentialsApi
      */
     public function removeUserCredentials(WP_REST_Request $request): WP_REST_Response
     {
+        global $wpdb;
+
         $userId = get_current_user_id();
 
         $pkCredentialId = get_user_meta($userId, 'pk_credential_id', true);
@@ -59,14 +60,13 @@ class CredentialsApi
         }
 
         // Remove the PublicKeyCredentialSource from custom table
-        global $wpdb;
-        $tableResult = $wpdb->delete(
-            'wp_pk_credential_sources',
-            ['pk_credential_id' => $pkCredentialId],
-            ['%s']
-        );
-
-        if ($tableResult === false) {
+        if (
+            $wpdb->delete(
+                'wp_pk_credential_sources',
+                ['pk_credential_id' => $pkCredentialId],
+                ['%s']
+            ) === false
+        ) {
             update_user_meta($userId, 'pk_credential_id', $pkCredentialId);
             throw new CredentialException('Failed to remove credential source.');
         }

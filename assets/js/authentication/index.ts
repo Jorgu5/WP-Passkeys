@@ -1,10 +1,7 @@
-import {AuthenticationHandler} from "./AuthenticationHandler";
+import Authentication from "./Authentication";
+import Utilities from "../Utilities";
 
-const authHandler = new AuthenticationHandler((success: boolean, message: string) => {
-    const notification = document.querySelector('.notification');
-    if (notification) {
-        notification.innerHTML = message;
-    }
-})
-
-authHandler.init(true).then(r => console.log(r));
+const authHandler = new Authentication(Utilities.setNotification.bind(this));
+authHandler.init(true).then(r => console.info(
+    'You rock!'
+));

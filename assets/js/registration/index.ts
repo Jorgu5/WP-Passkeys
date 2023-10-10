@@ -1,0 +1,1 @@
+import Registration from "./Registration";

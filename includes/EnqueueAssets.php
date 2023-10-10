@@ -2,25 +2,21 @@
 
 namespace WpPasskeys;
 
-use WpPasskeys\Traits\SingletonTrait;
-
 class EnqueueAssets
 {
-    use SingletonTrait;
-
-
     /**
      * Initializes the function.
      *
      * @return void
      */
-    public function init(): void
+    public static function register(): void
     {
-        add_action('login_enqueue_scripts', [ $this, 'enqueueLoginScripts' ]);
-        add_action('login_enqueue_scripts', [ $this, 'enqueueLoginStyles' ]);
+        $pluginAssets = new self();
+        add_action('login_enqueue_scripts', [ $pluginAssets, 'enqueueLoginScripts' ]);
+        add_action('login_enqueue_scripts', [ $pluginAssets, 'enqueueLoginStyles' ]);
 
-        add_action('admin_enqueue_scripts', [ $this, 'enqueueSettingStyles' ]);
-        add_action('admin_enqueue_scripts', [ $this, 'enqueueUserProfileScript' ]);
+        add_action('admin_enqueue_scripts', [ $pluginAssets, 'enqueueSettingStyles' ]);
+        add_action('admin_enqueue_scripts', [ $pluginAssets, 'enqueueUserProfileScript' ]);
     }
 
     /**
@@ -32,8 +28,16 @@ class EnqueueAssets
     public function enqueueLoginScripts(): void
     {
         wp_enqueue_script(
-            'passkeys-main-scripts',
-            $this->getAssetsPath() . 'js/index.js',
+            'passkeys-register',
+            $this->getAssetsPath() . 'js/registration/index.js',
+            array(),
+            WP_PASSKEYS_VERSION,
+            true
+        );
+
+        wp_enqueue_script(
+            'passkeys-form',
+            $this->getAssetsPath() . 'js/form/index.js',
             array(),
             WP_PASSKEYS_VERSION,
             true
@@ -41,7 +45,7 @@ class EnqueueAssets
 
         if (!isset($_GET['action']) || ($_GET['action'] !== 'register')) {
             wp_enqueue_script(
-                'passkeys-auth-script',
+                'passkeys-auth',
                 $this->getAssetsPath() . 'js/authentication/index.js',
                 array(),
                 WP_PASSKEYS_VERSION,
@@ -57,7 +61,7 @@ class EnqueueAssets
         }
         wp_enqueue_script(
             'passkeys-user-profile-scripts',
-            $this->getAssetsPath() . 'js/UserSettings.js',
+            $this->getAssetsPath() . 'js/admin/index.js',
             array(),
             WP_PASSKEYS_VERSION,
             true

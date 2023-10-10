@@ -8,41 +8,25 @@
  * @version 1.0.0
  */
 
-namespace WpPasskeys;
+namespace WpPasskeys\Credentials;
 
-use Exception;
+use Webauthn\AttestationStatement\AttestationStatementSupportManager;
+use Webauthn\AuthenticationExtensions\ExtensionOutputCheckerHandler;
+use Webauthn\AuthenticatorAttestationResponse;
+use Webauthn\AuthenticatorAttestationResponseValidator;
 use Webauthn\Exception\InvalidDataException;
 use Webauthn\PublicKeyCredentialCreationOptions;
 use Webauthn\PublicKeyCredentialSource;
 use Webauthn\PublicKeyCredentialSourceRepository;
 use Webauthn\PublicKeyCredentialUserEntity;
-use Webauthn\TrustPath\TrustPath;
-use Symfony\Component\Uid\Uuid;
 use WP_Error;
-use WP_User;
-use WpOrg\Requests\Session;
 use WpPasskeys\Exceptions\CredentialException;
-use WpPasskeys\Exceptions\NonceException;
-use WpPasskeys\Traits\SingletonTrait;
+use WpPasskeys\Utilities;
 
-/**
- * Credential Helper for WP Pass Keys.
- */
-class CredentialHelper implements PublicKeyCredentialSourceRepository
+class CredentialHelper implements CredentialHelperInterface, PublicKeyCredentialSourceRepository
 {
-    use SingletonTrait;
-
     public readonly PublicKeyCredentialCreationOptions $publicKeyCredentialCreationOptions;
 
-    /**
-     * Finds a PublicKeyCredentialSource by the given credential ID.
-     *
-     * @param string $publicKeyCredentialId The credential ID to search for.
-     *
-     * @return PublicKeyCredentialSource|null The found PublicKeyCredentialSource, or null if not found.
-     * @throws InvalidDataException
-     * @throws \JsonException
-     */
     public function findOneByCredentialId(string $publicKeyCredentialId): ?PublicKeyCredentialSource
     {
         global $wpdb;
@@ -64,16 +48,6 @@ class CredentialHelper implements PublicKeyCredentialSourceRepository
     }
 
 
-    /**
-     * Finds all credential sources for a given WordPress username.
-     *
-     * @param PublicKeyCredentialUserEntity $publicKeyCredentialUserEntity
-     *
-     * @return array The array of PublicKeyCredentialDescriptor objects.
-     * @throws InvalidDataException
-     * @throws \JsonException
-     * @throws CredentialException
-     */
     public function findAllForUserEntity(PublicKeyCredentialUserEntity $publicKeyCredentialUserEntity): array
     {
         $credentialDescriptorsStore = [];
@@ -90,14 +64,6 @@ class CredentialHelper implements PublicKeyCredentialSourceRepository
     }
 
 
-    /**
-     * Saves a credential source to the database.
-     *
-     * @param PublicKeyCredentialSource $publicKeyCredentialSource The credential source to save.
-     *
-     * @return void
-     * @throws Exception If there is an error saving the credential source.
-     */
     public function saveCredentialSource(PublicKeyCredentialSource $publicKeyCredentialSource): void
     {
         global $wpdb;
@@ -119,12 +85,9 @@ class CredentialHelper implements PublicKeyCredentialSourceRepository
         }
     }
 
-    /**
-     * @throws CredentialException
-     */
     public function createUserWithPkCredentialId(string $publicKeyCredentialId): void
     {
-        $userData = UsernameHandler::instance()->handleUserData();
+        $userData = UsernameHandler::userData();
         $userData['meta_input'] = [
             'pk_credential_id' => Utilities::safeEncode($publicKeyCredentialId)
         ];
@@ -147,30 +110,28 @@ class CredentialHelper implements PublicKeyCredentialSourceRepository
         }
     }
 
+    /**
+     * @throws \JsonException
+     */
     public function saveSessionCredentialOptions(
         PublicKeyCredentialCreationOptions $publicKeyCredentialCreationOptions
     ): void {
-        SessionHandler::instance()->start();
-        SessionHandler::instance()->set(
+        SessionHandler::start();
+        SessionHandler::set(
             'webauthn_credential_options',
-            $publicKeyCredentialCreationOptions->jsonSerialize()
+            json_encode($publicKeyCredentialCreationOptions, JSON_THROW_ON_ERROR)
         );
     }
 
     /**
-     * Retrieves the session credential data.
-     *
-     * @return PublicKeyCredentialCreationOptions|null The credential data, or null if not found.
-     * @throws InvalidDataException
+     * @throws \JsonException
      */
-
     public function getSessionCredentialOptions(): ?PublicKeyCredentialCreationOptions
     {
-        $session = SessionHandler::instance();
-        $session->start();
-        if ($session->has('webauthn_credential_options')) {
-            $options = $session->get('webauthn_credential_options');
-            return PublicKeyCredentialCreationOptions::createFromArray($options);
+        if (SessionHandler::has('webauthn_credential_options')) {
+            return PublicKeyCredentialCreationOptions::createFromString(
+                SessionHandler::get('webauthn_credential_options')
+            );
         }
         return null;
     }
@@ -204,10 +165,7 @@ class CredentialHelper implements PublicKeyCredentialSourceRepository
         return json_decode($credentialSource, true, 512, JSON_THROW_ON_ERROR);
     }
 
-    /**
-     * @throws CredentialException
-     */
-    public function getUserByCredentialId(string $pkCredentialId): int
+    public static function getUserByCredentialId(string $pkCredentialId): int
     {
         global $wpdb;
 
@@ -244,5 +202,34 @@ class CredentialHelper implements PublicKeyCredentialSourceRepository
         }
 
         return get_user_by('login', $username)->ID;
+    }
+
+    public function getPublicKeyCredentials(
+        AuthenticatorAttestationResponse $authenticatorAttestationResponse,
+        AttestationStatementSupportManager $supportManager,
+        ExtensionOutputCheckerHandler $checkerHandler
+    ): PublicKeyCredentialSource {
+        $authenticatorAttestationResponseValidator = new AuthenticatorAttestationResponseValidator(
+            $supportManager,
+            null,
+            null,
+            $checkerHandler,
+            null
+        );
+
+        $publicKeyCredentialCreationOptions = $this->getSessionCredentialOptions();
+
+        return $authenticatorAttestationResponseValidator->check(
+            $authenticatorAttestationResponse,
+            $publicKeyCredentialCreationOptions,
+            Utilities::getHostname(),
+            ['localhost']
+        );
+    }
+
+    public function storePublicKeyCredentialSource(PublicKeyCredentialSource $publicKeyCredentialSource): void
+    {
+        $this->createUserWithPkCredentialId($publicKeyCredentialSource->publicKeyCredentialId);
+        $this->saveCredentialSource($publicKeyCredentialSource);
     }
 }

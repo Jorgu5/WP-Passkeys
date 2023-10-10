@@ -2,19 +2,12 @@
 
 namespace WpPasskeys\Interfaces;
 
-use Exception;
-use Webauthn\AuthenticatorAttestationResponseValidator;
-use Webauthn\PublicKeyCredentialRequestOptions;
-use Webauthn\PublicKeyCredentialSource;
-use Webauthn\PublicKeyCredentialSourceRepository;
 use WP_Error;
 use WP_REST_Request;
 use WP_REST_Response;
 
 interface WebAuthnInterface
 {
-    // public function init(): void;
-
     /**
      * Create public key credential options.
      *

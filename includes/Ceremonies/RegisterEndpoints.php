@@ -10,7 +10,7 @@
 
 declare(strict_types=1);
 
-namespace WpPasskeys;
+namespace WpPasskeys\Ceremonies;
 
 use Exception;
 use JsonException;
@@ -21,44 +21,41 @@ use Webauthn\AttestationStatement\AttestationStatementSupportManager;
 use Webauthn\AttestationStatement\NoneAttestationStatementSupport;
 use Webauthn\AuthenticationExtensions\ExtensionOutputCheckerHandler;
 use Webauthn\AuthenticatorAttestationResponse;
-use Webauthn\AuthenticatorAttestationResponseValidator;
 use Webauthn\AuthenticatorSelectionCriteria;
-use Webauthn\Exception\WebauthnException;
 use Webauthn\PublicKeyCredentialCreationOptions;
 use Webauthn\PublicKeyCredentialLoader;
 use Webauthn\PublicKeyCredentialParameters;
-use Webauthn\PublicKeyCredentialSource;
-use WpPasskeys\Exceptions\CredentialException;
-use WpPasskeys\Interfaces\WebAuthnInterface;
-use WpPasskeys\Traits\SingletonTrait;
-use WpPasskeys\utilities as Util;
 use WP_Error;
 use WP_REST_Request;
 use WP_REST_Response;
+use WpPasskeys\AlgorithmManager\AlgorithmManager;
+use WpPasskeys\Credentials\CredentialEntityInterface;
+use WpPasskeys\Credentials\CredentialHelper;
+use WpPasskeys\Credentials\CredentialHelperInterface;
+use WpPasskeys\Credentials\SessionHandler;
+use WpPasskeys\Exceptions\CredentialException;
+use WpPasskeys\Interfaces\WebAuthnInterface;
+use WpPasskeys\Utilities as Util;
 
 /**
  * Registration Handler for WP Pass Keys.
  */
-class RegistrationHandler implements WebAuthnInterface
+class RegisterEndpoints implements WebAuthnInterface
 {
     public readonly AuthenticatorAttestationResponse $authenticatorAttestationResponse;
     public readonly ?PublicKeyCredentialCreationOptions $publicKeyCredentialCreationOptions;
-    public readonly AuthenticatorAttestationResponseValidator $authenticatorAttestationResponseValidator;
     public readonly PublicKeyCredentialLoader $publicKeyCredentialLoader;
     public readonly AttestationObjectLoader $attestationObjectLoader;
     public readonly AttestationStatementSupportManager $attestationStatementSupportManager;
+    public readonly CredentialHelperInterface $credentialHelper;
+    public readonly CredentialEntityInterface $credentialEntity;
 
-    /**
-     * Stores the public key credential source.
-     *
-     * @throws RuntimeException If the AuthenticatorAttestationResponse is missing.
-     * @throws RuntimeException|Throwable If failed to store the credential source.
-     */
-    public function storePublicKeyCredentialSource(PublicKeyCredentialSource $publicKeyCredentialSource): void
-    {
-        $credentialHelper = CredentialHelper::instance();
-        $credentialHelper->createUserWithPkCredentialId($publicKeyCredentialSource->publicKeyCredentialId);
-        $credentialHelper->saveCredentialSource($publicKeyCredentialSource);
+    public function __construct(
+        CredentialHelperInterface $credentialHelper,
+        CredentialEntityInterface $credentialEntity
+    ) {
+        $this->credentialHelper = $credentialHelper;
+        $this->credentialEntity = $credentialEntity;
     }
 
     /**
@@ -72,10 +69,9 @@ class RegistrationHandler implements WebAuthnInterface
     {
         try {
             $challenge                        = base64_encode(random_bytes(32));
-            $algorithmManager                = AlgorithmManager::instance();
-            $algorithmManagerKeys           = $algorithmManager->getAlgorithmIdentifiers();
+            $algorithmManagerKeys           = AlgorithmManager::getAlgorithmIdentifiers();
             $publicKeyCredentialParameters = array();
-            $userLogin = SessionHandler::instance()->get('user_data')['user_login'];
+            $userLogin = SessionHandler::get('user_data')['user_login'];
 
             foreach ($algorithmManagerKeys as $algorithmNumber) {
                 $publicKeyCredentialParameters[] = new PublicKeyCredentialParameters(
@@ -85,8 +81,8 @@ class RegistrationHandler implements WebAuthnInterface
             }
 
             $this->publicKeyCredentialCreationOptions = PublicKeyCredentialCreationOptions::create(
-                Util::createRpEntity(),
-                Util::createUserEntity($userLogin),
+                $this->credentialEntity->createRpEntity(),
+                $this->credentialEntity->createUserEntity($userLogin),
                 $challenge,
                 $publicKeyCredentialParameters,
             );
@@ -102,7 +98,7 @@ class RegistrationHandler implements WebAuthnInterface
             $this->publicKeyCredentialCreationOptions->attestation =
                 PublicKeyCredentialCreationOptions::ATTESTATION_CONVEYANCE_PREFERENCE_NONE;
 
-            CredentialHelper::instance()->saveSessionCredentialOptions(
+            $this->credentialHelper->saveSessionCredentialOptions(
                 $this->publicKeyCredentialCreationOptions
             );
 
@@ -136,18 +132,18 @@ class RegistrationHandler implements WebAuthnInterface
             }
             $this->authenticatorAttestationResponse = $authenticatorAttestationResponse;
 
-            $this->storePublicKeyCredentialSource(
-                $this->getPublicKeyCredentials(
+            $this->credentialHelper->storePublicKeyCredentialSource(
+                $this->credentialHelper->getPublicKeyCredentials(
                     $this->authenticatorAttestationResponse,
                     $this->attestationStatementSupportManager,
                     ExtensionOutputCheckerHandler::create(),
                 )
             );
 
-            $redirectUrl = !is_user_logged_in() ? Utilities::getRedirectUrl() : '';
+            $redirectUrl = !is_user_logged_in() ? Util::getRedirectUrl() : '';
 
-            Utilities::setAuthCookie(
-                SessionHandler::instance()->get('user_data')['user_login'],
+            Util::setAuthCookie(
+                SessionHandler::get('user_data')['user_login'],
                 null
             );
 
@@ -168,34 +164,5 @@ class RegistrationHandler implements WebAuthnInterface
         }
 
         return $response;
-    }
-
-    /**
-     * Retrieves the validated credentials.
-     *
-     * @return PublicKeyCredentialSource The validated credentials.
-     * @throws Throwable
-     */
-    private function getPublicKeyCredentials(
-        AuthenticatorAttestationResponse $authenticatorAttestationResponse,
-        AttestationStatementSupportManager $supportManager,
-        ExtensionOutputCheckerHandler $checkerHandler
-    ): PublicKeyCredentialSource {
-        $this->authenticatorAttestationResponseValidator = new AuthenticatorAttestationResponseValidator(
-            $supportManager,
-            null,
-            null,
-            $checkerHandler,
-            null
-        );
-
-        $this->publicKeyCredentialCreationOptions = CredentialHelper::instance()->getSessionCredentialOptions();
-
-        return $this->authenticatorAttestationResponseValidator->check(
-            $authenticatorAttestationResponse,
-            $this->publicKeyCredentialCreationOptions,
-            Util::getHostname(),
-            ['localhost']
-        );
     }
 }

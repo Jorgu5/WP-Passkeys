@@ -1,26 +1,22 @@
 <?php
 
-namespace WpPasskeys;
+declare(strict_types=1);
 
-use WpPasskeys\Traits\SingletonTrait;
+namespace WpPasskeys\Credentials;
 
 class UsernameHandler
 {
-    use SingletonTrait;
-
-    public function handleUserData(): array
+    public static function userData(): array
     {
         $userData = [];
 
-        $session = SessionHandler::instance();
-
-        if ($session->has('user_data')) {
-            $userData = $session->get('user_data');
+        if (SessionHandler::has('user_data')) {
+            $userData = SessionHandler::get('user_data');
         }
 
         $userEmail = $userData['user_email'] ?? '';
 
-        [$username, $displayName] = $this->getDisplayAndUserName($userData);
+        [$username, $displayName] = (new self())->getDisplayAndUserName($userData);
 
         return [
             'user_login' => $username,
@@ -29,7 +25,7 @@ class UsernameHandler
         ];
     }
 
-    private function handleUsername($username, $email, $displayName): string
+    private function username(string $username, string $email, string $displayName): string
     {
         if (!empty($username) || (!empty($email) && empty($displayName))) {
             return $username ?: $this->convertEmail($email);
@@ -37,7 +33,7 @@ class UsernameHandler
         return !empty($email) ? $this->convertEmail($email) : $this->convertDisplayName($displayName);
     }
 
-    private function handleDisplayName($displayName, $username, $email): string
+    private function displayName(string $displayName, string $username, string $email): string
     {
         if (!empty($username) || !empty($displayName)) {
             return $displayName ?: $username;
@@ -45,7 +41,7 @@ class UsernameHandler
         return !empty($email) ? explode('@', $email)[0] : $username;
     }
 
-    private function getDisplayAndUserName($userData): array
+    private function getDisplayAndUserName(array $userData): array
     {
         $username = $userData['user_login'] ?? '';
         $displayName = $userData['display_name'] ?? '';
@@ -57,8 +53,8 @@ class UsernameHandler
             return [$username, $username];
         }
 
-        $username = $this->handleUsername($username, $email, $displayName);
-        $displayName = $this->handleDisplayName($displayName, $username, $email);
+        $username = $this->username($username, $email, $displayName);
+        $displayName = $this->displayName($displayName, $username, $email);
 
         // Fallback to username if displayName is still empty
         $displayName = $displayName ?: $username;

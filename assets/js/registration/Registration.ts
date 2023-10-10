@@ -3,12 +3,12 @@ import {
     RegistrationResponseJSON
 } from "@simplewebauthn/typescript-types";
 import { startRegistration } from "@simplewebauthn/browser";
-import {NotifyFunctionType, VerificationResponse} from "./WebauthnTypes";
+import {NotifyFunctionType, VerificationResponse} from "../WebauthnTypes";
 
-export class RegistrationHandler {
-    private readonly notify: NotifyFunctionType;
+export default class Registration {
+    private readonly notify: NotifyFunctionType | undefined;
 
-    constructor(notifyFunction: NotifyFunctionType) {
+    constructor(notifyFunction?: NotifyFunctionType) {
         this.notify = notifyFunction;
     }
 
@@ -48,7 +48,6 @@ export class RegistrationHandler {
             }
             try {
                 verificationJSON = await this.verify(attResp);
-                console.log(verificationJSON);
                 if (verificationJSON.data?.redirectUrl) {
                     window.location.href = verificationJSON.data.redirectUrl;
                 }

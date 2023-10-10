@@ -13,16 +13,13 @@ declare(strict_types=1);
 
 namespace WpPasskeys\Admin;
 
-use WpPasskeys\Traits\SingletonTrait;
-
 class PluginSettings
 {
-    use SingletonTrait;
-
-    public function init(): void
+    public static function register(): void
     {
-        add_action('admin_init', [$this, 'setupSettings']);
-        add_action('admin_menu', [$this, 'addAdminMenu']);
+        $pluginSettings = new self();
+        add_action('admin_init', [$pluginSettings, 'setupSettings']);
+        add_action('admin_menu', [$pluginSettings, 'addAdminMenu']);
     }
 
     public function addAdminMenu(): void
@@ -110,8 +107,9 @@ class PluginSettings
             'wppk_general_settings_section',
             [
                 'label' => __('Choose the user data to require during registration. 
-                If left unchecked, users will be registered with random usernames and passkeys a.k.a Usernameless. 
-                Unchecking both username and email will disable default WordPress registration with a password and force passkey registration.
+                If left unchecked, users will be registered with random usernames and passkeys a.k.a Usernameless.
+                Unchecking both username and email will disable default WordPress registration 
+                with a password and force passkey registration.
                 ', 'wp-passkeys'),
             ],
         );
@@ -175,11 +173,15 @@ class PluginSettings
                 <legend><span>' . __($args['label'], 'wp-passkeys') . '</span></legend>';
         foreach ($items as $itemName => $itemValue) {
             $checked = in_array($itemValue, $option, true) ? 'checked="checked"' : '';
-            echo "<label for={$optionName}>${itemName}</label><input type='checkbox' name='{$optionName}[]' value='{$itemValue}' $checked>";
+            echo "<label for={$optionName}>${itemName}</label>
+                <input type='checkbox' name='{$optionName}[]' value='{$itemValue}' $checked>";
         }
         echo '</fieldset>';
     }
 
+    /**
+     * @param string[] $args
+     */
     public function removeLoginPassword(array $args): void
     {
         $optionName = 'wppk_remove_password_field';
@@ -192,7 +194,10 @@ class PluginSettings
         echo "<input type='checkbox' name='wppk_remove_password_field' $checked>";
     }
 
-    public function passkeysRedirectCallback($args): void
+    /**
+     * @param string[] $args
+     */
+    public function passkeysRedirectCallback(array $args): void
     {
         $optionName = 'wppk_passkeys_redirect';
         $option = get_option($optionName);
@@ -200,7 +205,10 @@ class PluginSettings
         echo "<input type='text' name='wppk_passkeys_redirect' value='$option'>";
     }
 
-    public function passkeysTimeoutCallback($args): void
+    /**
+     * @param string[] $args
+     */
+    public function passkeysTimeoutCallback(array $args): void
     {
         $optionName = 'wppk_passkeys_timeout';
         $option = get_option($optionName);
@@ -208,7 +216,10 @@ class PluginSettings
         echo "<input type='number' placeholder='30000' name='wppk_passkeys_timeout' value='$option'>";
     }
 
-    public function promptPasswordUsers($args): void
+    /**
+     * @param string[] $args
+     */
+    public function promptPasswordUsers(array $args): void
     {
         $optionName = 'wppk_prompt_password_users';
         $option = get_option($optionName);
@@ -220,6 +231,10 @@ class PluginSettings
         echo "<input type='checkbox' name='wppk_prompt_password_users' $checked>";
     }
 
+    /**
+     * @param string[] $args
+     * @param string $name
+     */
     private function renderLabel(array $args, string $name): void
     {
         if (isset($args['label'])) {

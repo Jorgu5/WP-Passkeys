@@ -1,32 +1,28 @@
 <?php
 
-namespace WpPasskeys;
-
-use WpPasskeys\Traits\SingletonTrait;
+namespace WpPasskeys\Form;
 
 class FormHandler
 {
-    use SingletonTrait;
-
     private readonly string $passkeysButtonClass;
     private readonly array $userDataSettings;
 
-    public function init(): void
+    public function __construct()
     {
         $this->passkeysButtonClass = $this->isRegisterFlow() ? 'passkeys-button--register' : 'passkeys-button--login';
         $this->userDataSettings = (array) get_option('wppk_require_userdata');
-        $this->passkeysInit();
     }
 
-    public function passkeysInit(): void
+    public static function register(): void
     {
+        $formHandler = new self();
         add_action('login_head', static function () {
             ob_start();
         }, 99);
 
-        add_action('login_footer', [ $this, 'addAutocompleteAttribute' ]);
-        add_action('login_form', [ $this, 'loginPasskeysFlow' ], 1);
-        add_action('register_form', [$this, 'registerPasskeysFlow']);
+        add_action('login_footer', [ $formHandler, 'addAutocompleteAttribute' ]);
+        add_action('login_form', [ $formHandler, 'loginPasskeysFlow' ], 1);
+        add_action('register_form', [$formHandler, 'registerPasskeysFlow']);
     }
 
     public function addAutocompleteAttribute(): void
