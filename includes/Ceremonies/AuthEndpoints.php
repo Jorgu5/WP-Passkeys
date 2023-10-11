@@ -106,7 +106,7 @@ class AuthEndpoints implements WebAuthnInterface
                 new CredentialHelper(),
                 null,
                 ExtensionOutputCheckerHandler::create(),
-                AlgorithmManager::init(),
+                (new AlgorithmManager())->init(),
                 null,
             )->check(
                 $request->get_param('rawId'),

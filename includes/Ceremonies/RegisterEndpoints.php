@@ -68,8 +68,9 @@ class RegisterEndpoints implements WebAuthnInterface
     public function createPublicKeyCredentialOptions(WP_REST_Request $request): WP_REST_Response
     {
         try {
+            $algorithmManager = new AlgorithmManager();
             $challenge                        = base64_encode(random_bytes(32));
-            $algorithmManagerKeys           = AlgorithmManager::getAlgorithmIdentifiers();
+            $algorithmManagerKeys           = $algorithmManager->getAlgorithmIdentifiers();
             $publicKeyCredentialParameters = array();
             $userLogin = SessionHandler::get('user_data')['user_login'];
 

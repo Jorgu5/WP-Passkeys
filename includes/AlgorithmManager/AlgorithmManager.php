@@ -31,17 +31,14 @@ use InvalidArgumentException;
 /**
  * Algorithm Manager for WP Pass Keys.
  */
-class AlgorithmManager implements AlgorithmManagerInterface
+class AlgorithmManager
 {
-    /**
-     * @var array
-     */
-    private static array $algorithms = [];
+    private array $algorithms;
 
     /**
      * Constructor for the class.
      */
-    public static function init(): Manager
+    public function init(): Manager
     {
         return Manager::create()->add(
             ES256::create(),
@@ -64,7 +61,7 @@ class AlgorithmManager implements AlgorithmManagerInterface
      *
      * @return array The algorithm manager instance.
      */
-    public static function getAlgorithmIdentifiers(): array
+    public function getAlgorithmIdentifiers(): array
     {
         return array(
             ES256::identifier()  => -7,  // ECDSA w/ SHA-256
@@ -83,27 +80,27 @@ class AlgorithmManager implements AlgorithmManagerInterface
     }
 
     /**
-     * @param string $identifier
+     * @param int $identifier
+     *
      * @return Algorithm
-     * @throws InvalidArgumentException
      */
-    public static function get(string $identifier): Algorithm
+    public function get(int $identifier): Algorithm
     {
-        if (!self::has($identifier)) {
+        if (! $this->has($identifier)) {
             throw new InvalidArgumentException('Unsupported algorithm');
         }
 
-        // Access the algorithms using the $identifier as a key
-        return self::$algorithms[$identifier];
+        return $this->algorithms[$identifier];
     }
 
     /**
-     * @param string $identifier
+     * @param int $identifier
+     *
      * @return bool
      */
-    public static function has(string $identifier): bool
+    public function has(int $identifier): bool
     {
         // Check if the algorithm exists in the array
-        return array_key_exists($identifier, self::$algorithms);
+        return array_key_exists($identifier, $this->algorithms);
     }
 }
