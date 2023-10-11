@@ -7,6 +7,7 @@ use function Brain\Monkey\tearDown;
 use Mockery\Adapter\Phpunit\MockeryPHPUnitIntegration;
 use PHPUnit\Framework\TestCase as PHPUnitTestCase;
 use Brain\Monkey\Functions;
+
 class TestCase extends PHPUnitTestCase {
 
     // Adds Mockery expectations to the PHPUnit assertions count.
@@ -16,7 +17,7 @@ class TestCase extends PHPUnitTestCase {
     {
         parent::setUp();
         setUp();
-        Functions\when('add_options_page')->justReturn(true);
+        Functions\stubTranslationFunctions();
     }
 
     protected function tearDown(): void
