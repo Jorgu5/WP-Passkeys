@@ -4,14 +4,9 @@ namespace WpPasskeys\RestApi;
 
 use ReflectionClass;
 use ReflectionException;
-use WpPasskeys\Ceremonies\AuthEndpoints;
-use WpPasskeys\Ceremonies\RegisterEndpoints;
 use WpPasskeys\Credentials\CredentialsEndpointsInterface;
 use WpPasskeys\Credentials\SessionHandler;
-use WpPasskeys\Credentials\CredentialsEndpoints;
 use WpPasskeys\Interfaces\WebAuthnInterface;
-use WpPasskeys\Credentials\CredentialHelper;
-use WpPasskeys\Credentials\CredentialEntity;
 
 /**
  * @property WebAuthnInterface $authEndpoints

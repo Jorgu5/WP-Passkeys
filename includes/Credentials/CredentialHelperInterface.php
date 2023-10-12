@@ -70,7 +70,7 @@ interface CredentialHelperInterface
     /**
      * @throws CredentialException
      */
-    public static function getUserByCredentialId(string $pkCredentialId): int;
+    public function getUserByCredentialId(string $pkCredentialId): int;
 
     /**
      * Retrieves the validated credentials.

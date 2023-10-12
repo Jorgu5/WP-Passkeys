@@ -11,21 +11,17 @@ namespace WpPasskeys\Ceremonies;
 use Exception;
 use JsonException;
 use Throwable;
-use Webauthn\AttestationStatement\AttestationObjectLoader;
-use Webauthn\AttestationStatement\AttestationStatementSupportManager;
 use Webauthn\AuthenticationExtensions\ExtensionOutputCheckerHandler;
 use Webauthn\AuthenticatorAssertionResponse;
 use Webauthn\AuthenticatorAssertionResponseValidator;
-use Webauthn\Exception\InvalidDataException;
-use Webauthn\PublicKeyCredential;
 use Webauthn\PublicKeyCredentialLoader;
 use Webauthn\PublicKeyCredentialRequestOptions;
 use WP_Error;
 use WP_REST_Request;
 use WP_REST_Response;
-use WP_User;
 use WpPasskeys\AlgorithmManager\AlgorithmManager;
 use WpPasskeys\Credentials\CredentialHelper;
+use WpPasskeys\Credentials\CredentialHelperInterface;
 use WpPasskeys\Credentials\SessionHandler;
 use WpPasskeys\Exceptions\CredentialException;
 use WpPasskeys\Interfaces\WebAuthnInterface;
@@ -33,28 +29,24 @@ use WpPasskeys\Utilities;
 
 class AuthEndpoints implements WebAuthnInterface
 {
-    public readonly CredentialHelper $credentialHelper;
-    public readonly PublicKeyCredential $publicKeyCredential;
-    public readonly PublicKeyCredentialLoader $publicKeyCredentialLoader;
-    public readonly AuthenticatorAssertionResponseValidator $authenticatorAssertionResponseValidator;
-    public readonly AlgorithmManager $algorithmManager;
-    public readonly WP_User $user;
-    public const API_NAMESPACE = '/authenticator';
+    private readonly PublicKeyCredentialLoader $publicKeyCredentialLoader;
+    private readonly AuthenticatorAssertionResponseValidator $authenticatorAssertionResponseValidator;
 
-    public function __construct()
+    public const API_NAMESPACE = '/authenticator';
+    private readonly CredentialHelperInterface $credentialHelper;
+    private readonly AlgorithmManager $algorithmManager;
+
+    public function __construct(
+        PublicKeyCredentialLoader $publicKeyCredentialLoader,
+        AuthenticatorAssertionResponseValidator $authenticatorAssertionResponseValidator,
+        CredentialHelperInterface $credentialHelper,
+        AlgorithmManager $algorithmManager
+    )
     {
-        $this->publicKeyCredentialLoader = new PublicKeyCredentialLoader(
-            AttestationObjectLoader::create(
-                AttestationStatementSupportManager::create()
-            )
-        );
-        // Temporary create PK Source but should be deprecated soon
-        $this->authenticatorAssertionResponseValidator = new AuthenticatorAssertionResponseValidator(
-            null,
-            null,
-            ExtensionOutputCheckerHandler::create(),
-            null,
-        );
+        $this->publicKeyCredentialLoader = $publicKeyCredentialLoader;
+        $this->authenticatorAssertionResponseValidator = $authenticatorAssertionResponseValidator;
+        $this->credentialHelper = $credentialHelper;
+        $this->algorithmManager = $algorithmManager;
     }
 
     /**
@@ -92,8 +84,8 @@ class AuthEndpoints implements WebAuthnInterface
     public function verifyPublicKeyCredentials(WP_REST_Request $request): WP_REST_Response|WP_Error
     {
         try {
-            $this->publicKeyCredential = $this->publicKeyCredentialLoader->load($request->get_body());
-            $authenticatorAssertionResponse = $this->publicKeyCredential->response;
+            $publicKeyCredential            = $this->publicKeyCredentialLoader->load($request->get_body());
+            $authenticatorAssertionResponse = $publicKeyCredential->response;
             if (! $authenticatorAssertionResponse instanceof AuthenticatorAssertionResponse) {
                 return new WP_Error(
                     'Invalid_response',
@@ -103,10 +95,10 @@ class AuthEndpoints implements WebAuthnInterface
             }
 
             $this->authenticatorAssertionResponseValidator::create(
-                new CredentialHelper(),
+                $this->credentialHelper,
                 null,
                 ExtensionOutputCheckerHandler::create(),
-                (new AlgorithmManager())->init(),
+                $this->algorithmManager->init(),
                 null,
             )->check(
                 $request->get_param('rawId'),
@@ -118,7 +110,7 @@ class AuthEndpoints implements WebAuthnInterface
             );
 
             if ($request->has_param('id')) {
-                $userId = CredentialHelper::getUserByCredentialId($request->get_param('id'));
+                $userId = $this->credentialHelper->getUserByCredentialId($request->get_param('id'));
                 Utilities::setAuthCookie(null, $userId);
             } else {
                 Utilities::setAuthCookie(SessionHandler::get('user_data')['user_login']);

@@ -30,7 +30,6 @@ use WP_REST_Request;
 use WP_REST_Response;
 use WpPasskeys\AlgorithmManager\AlgorithmManager;
 use WpPasskeys\Credentials\CredentialEntityInterface;
-use WpPasskeys\Credentials\CredentialHelper;
 use WpPasskeys\Credentials\CredentialHelperInterface;
 use WpPasskeys\Credentials\SessionHandler;
 use WpPasskeys\Exceptions\CredentialException;

@@ -2,6 +2,11 @@
 
 namespace WpPasskeys;
 
+use Webauthn\AttestationStatement\AttestationObjectLoader;
+use Webauthn\AttestationStatement\AttestationStatementSupportManager;
+use Webauthn\AuthenticationExtensions\ExtensionOutputCheckerHandler;
+use Webauthn\AuthenticatorAssertionResponseValidator;
+use Webauthn\PublicKeyCredentialLoader;
 use WpPasskeys\Admin\PluginSettings;
 use WpPasskeys\Admin\UserSettings;
 use WpPasskeys\Ceremonies\AuthEndpoints;
@@ -11,6 +16,7 @@ use WpPasskeys\Credentials\CredentialsEndpoints;
 use WpPasskeys\Credentials\CredentialHelper;
 use WpPasskeys\Form\FormHandler;
 use WpPasskeys\RestApi\RestApiHandler;
+use WpPasskeys\AlgorithmManager\AlgorithmManager;
 
 require_once ABSPATH . 'wp-admin/includes/upgrade.php';
 
@@ -26,11 +32,29 @@ class PasskeysPlugin
         $this->restApiHandler = $restApiHandler;
     }
 
+
     public static function make(): self
     {
         $restApiHandler = new RestApiHandler(
-            new AuthEndpoints(),
-            new RegisterEndpoints(new CredentialHelper(), new CredentialEntity()),
+            new AuthEndpoints(
+                new PublicKeyCredentialLoader(
+                    AttestationObjectLoader::create(
+                        AttestationStatementSupportManager::create()
+                    )
+                ),
+                new AuthenticatorAssertionResponseValidator(
+                    null,
+                    null,
+                    ExtensionOutputCheckerHandler::create(),
+                    null,
+                ),
+                new CredentialHelper(),
+                new AlgorithmManager(),
+            ),
+            new RegisterEndpoints(
+                new CredentialHelper(),
+                new CredentialEntity()
+            ),
             new CredentialsEndpoints()
         );
 

@@ -165,7 +165,7 @@ class CredentialHelper implements CredentialHelperInterface, PublicKeyCredential
         return json_decode($credentialSource, true, 512, JSON_THROW_ON_ERROR);
     }
 
-    public static function getUserByCredentialId(string $pkCredentialId): int
+    public function getUserByCredentialId(string $pkCredentialId): int
     {
         global $wpdb;
 
