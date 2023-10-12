@@ -10,6 +10,7 @@ namespace WpPasskeys\Ceremonies;
 
 use Exception;
 use JsonException;
+use Random\RandomException;
 use Throwable;
 use Webauthn\AuthenticationExtensions\ExtensionOutputCheckerHandler;
 use Webauthn\AuthenticatorAssertionResponse;
@@ -20,7 +21,7 @@ use WP_Error;
 use WP_REST_Request;
 use WP_REST_Response;
 use WpPasskeys\AlgorithmManager\AlgorithmManager;
-use WpPasskeys\Credentials\CredentialHelper;
+use WpPasskeys\AlgorithmManager\AlgorithmManagerInterface;
 use WpPasskeys\Credentials\CredentialHelperInterface;
 use WpPasskeys\Credentials\SessionHandler;
 use WpPasskeys\Exceptions\CredentialException;
@@ -29,20 +30,22 @@ use WpPasskeys\Utilities;
 
 class AuthEndpoints implements WebAuthnInterface
 {
-    private readonly PublicKeyCredentialLoader $publicKeyCredentialLoader;
-    private readonly AuthenticatorAssertionResponseValidator $authenticatorAssertionResponseValidator;
+    public readonly PublicKeyCredentialLoader $publicKeyCredentialLoader;
+    public readonly AuthenticatorAssertionResponseValidator $authenticatorAssertionResponseValidator;
 
     public const API_NAMESPACE = '/authenticator';
-    private readonly CredentialHelperInterface $credentialHelper;
-    private readonly AlgorithmManager $algorithmManager;
+    public readonly CredentialHelperInterface $credentialHelper;
+    public readonly AlgorithmManagerInterface $algorithmManager;
+
+    private PublicKeyCredentialRequestOptions $options;
+    private array $verifiedResponse;
 
     public function __construct(
         PublicKeyCredentialLoader $publicKeyCredentialLoader,
         AuthenticatorAssertionResponseValidator $authenticatorAssertionResponseValidator,
         CredentialHelperInterface $credentialHelper,
-        AlgorithmManager $algorithmManager
-    )
-    {
+        AlgorithmManagerInterface $algorithmManager
+    ) {
         $this->publicKeyCredentialLoader = $publicKeyCredentialLoader;
         $this->authenticatorAssertionResponseValidator = $authenticatorAssertionResponseValidator;
         $this->credentialHelper = $credentialHelper;
@@ -53,7 +56,7 @@ class AuthEndpoints implements WebAuthnInterface
      * @param WP_REST_Request $request *
      *
      * @throws Exception
-     */
+*/
     public function createPublicKeyCredentialOptions(WP_REST_Request $request): WP_REST_Response
     {
         try {
@@ -62,17 +65,18 @@ class AuthEndpoints implements WebAuthnInterface
                 ::create(
                     $challenge
                 );
-            $publicKeyCredentialRequestOptions->allowCredentials = []; // ... $this->getAllowedCredentials()
-            $publicKeyCredentialRequestOptions->userVerification =
-                PublicKeyCredentialRequestOptions::USER_VERIFICATION_REQUIREMENT_REQUIRED;
-            $publicKeyCredentialRequestOptions->rpId = Utilities::getHostname();
-
-            SessionHandler::set('pk_credential_request_options', $publicKeyCredentialRequestOptions);
-
-            return new WP_REST_Response($publicKeyCredentialRequestOptions, 200);
         } catch (Exception $e) {
-            return new WP_REST_Response($e->getMessage(), 400);
+            throw new Exception($e->getMessage(), 500);
         }
+
+        $publicKeyCredentialRequestOptions->allowCredentials = []; // ... $this->getAllowedCredentials()
+        $publicKeyCredentialRequestOptions->userVerification =
+            PublicKeyCredentialRequestOptions::USER_VERIFICATION_REQUIREMENT_REQUIRED;
+        $publicKeyCredentialRequestOptions->rpId = Utilities::getHostname();
+
+        $this->options = $publicKeyCredentialRequestOptions;
+        SessionHandler::set('pk_credential_request_options', $this->options);
+        return new WP_REST_Response($this->options, 200);
     }
 
     /**
@@ -84,9 +88,10 @@ class AuthEndpoints implements WebAuthnInterface
     public function verifyPublicKeyCredentials(WP_REST_Request $request): WP_REST_Response|WP_Error
     {
         try {
-            $publicKeyCredential            = $this->publicKeyCredentialLoader->load($request->get_body());
-            $authenticatorAssertionResponse = $publicKeyCredential->response;
-            if (! $authenticatorAssertionResponse instanceof AuthenticatorAssertionResponse) {
+            $data = $request->get_body();
+            $publicKeyCredential            = $this->publicKeyCredentialLoader->load($data);
+            $authenticatorAssertionResponse = $publicKeyCredential->getResponse();
+            if ($this->isValidAuthenticatorAssertionResponse($authenticatorAssertionResponse) === false) {
                 return new WP_Error(
                     'Invalid_response',
                     'AuthenticatorAssertionResponse expected',
@@ -116,17 +121,35 @@ class AuthEndpoints implements WebAuthnInterface
                 Utilities::setAuthCookie(SessionHandler::get('user_data')['user_login']);
             }
 
-            $response = new WP_REST_Response(array(
-                'status' => 'Verified',
-                'statusText' => 'Successfully verified the credential.',
-                'redirectUrl' => Utilities::getRedirectUrl(),
-            ), 200);
-        } catch (JsonException | CredentialException $e) {
-            $response = new WP_Error('Invalid_response', $e->getMessage(), array( 'status' => 400 ));
-        } catch (Throwable $e) {
-            $response = new WP_Error('Invalid_response', $e->getMessage(), array( 'status' => 500 ));
-        }
+            $this->verifiedResponse = [
+                    'status' => 'Verified',
+                    'statusText' => 'Successfully verified the credential.',
+                    'redirectUrl' => Utilities::getRedirectUrl(),
+            ];
 
+            $response = new WP_REST_Response($this->verifiedResponse, 200);
+        } catch (JsonException $e) {
+            $response = new WP_Error('json', $e->getMessage());
+        } catch (CredentialException $e) {
+            $response = new WP_Error('credential-error', $e->getMessage());
+        } catch (Throwable $e) {
+            $response = new WP_Error('server', $e->getMessage());
+        }
         return $response;
+    }
+
+    public function getOptions(): PublicKeyCredentialRequestOptions
+    {
+        return $this->options;
+    }
+
+    public function getVerifiedResponse(): array
+    {
+        return $this->verifiedResponse;
+    }
+
+    protected function isValidAuthenticatorAssertionResponse($response): bool
+    {
+        return $response instanceof AuthenticatorAssertionResponse;
     }
 }

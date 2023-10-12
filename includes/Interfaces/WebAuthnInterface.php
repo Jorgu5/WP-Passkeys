@@ -2,6 +2,9 @@
 
 namespace WpPasskeys\Interfaces;
 
+use Webauthn\AuthenticatorAssertionResponse;
+use Webauthn\PublicKeyCredentialCreationOptions;
+use Webauthn\PublicKeyCredentialRequestOptions;
 use WP_Error;
 use WP_REST_Request;
 use WP_REST_Response;
@@ -25,4 +28,7 @@ interface WebAuthnInterface
     public function verifyPublicKeyCredentials(
         WP_REST_Request $request
     ): WP_REST_Response|WP_Error;
+
+    public function getVerifiedResponse(): array;
+
 }

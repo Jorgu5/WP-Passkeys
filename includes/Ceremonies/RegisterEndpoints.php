@@ -25,6 +25,7 @@ use Webauthn\AuthenticatorSelectionCriteria;
 use Webauthn\PublicKeyCredentialCreationOptions;
 use Webauthn\PublicKeyCredentialLoader;
 use Webauthn\PublicKeyCredentialParameters;
+use Webauthn\PublicKeyCredentialRequestOptions;
 use WP_Error;
 use WP_REST_Request;
 use WP_REST_Response;
@@ -42,12 +43,14 @@ use WpPasskeys\Utilities as Util;
 class RegisterEndpoints implements WebAuthnInterface
 {
     public readonly AuthenticatorAttestationResponse $authenticatorAttestationResponse;
-    public readonly ?PublicKeyCredentialCreationOptions $publicKeyCredentialCreationOptions;
+    public readonly PublicKeyCredentialCreationOptions $publicKeyCredentialCreationOptions;
     public readonly PublicKeyCredentialLoader $publicKeyCredentialLoader;
     public readonly AttestationObjectLoader $attestationObjectLoader;
     public readonly AttestationStatementSupportManager $attestationStatementSupportManager;
     public readonly CredentialHelperInterface $credentialHelper;
     public readonly CredentialEntityInterface $credentialEntity;
+
+    private array $verifiedResponse;
 
     public function __construct(
         CredentialHelperInterface $credentialHelper,
@@ -147,14 +150,15 @@ class RegisterEndpoints implements WebAuthnInterface
                 null
             );
 
-            $response = new WP_REST_Response([
+            $this->verifiedResponse = [
                 'code' => 'verified',
                 'message' => 'Your account has been created. You are being redirect now to dashboard...',
                 'data' => [
                     'redirectUrl' => $redirectUrl,
                     'pk_credential_id' => $publicKeyCredential->id,
-                ]
-            ], 200);
+            ]];
+
+            $response = new WP_REST_Response($this->verifiedResponse, 200);
         } catch (JsonException $e) {
             $response = new WP_Error('json', $e->getMessage());
         } catch (CredentialException $e) {
@@ -164,5 +168,15 @@ class RegisterEndpoints implements WebAuthnInterface
         }
 
         return $response;
+    }
+
+    public function getCreationOptions(): PublicKeyCredentialCreationOptions
+    {
+        return $this->publicKeyCredentialCreationOptions;
+    }
+
+    public function getVerifiedResponse(): array
+    {
+        return $this->verifiedResponse;
     }
 }

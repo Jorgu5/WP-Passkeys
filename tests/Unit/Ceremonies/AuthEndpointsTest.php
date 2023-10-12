@@ -5,84 +5,150 @@ declare(strict_types=1);
 namespace WpPasskeys\Tests\Unit\Ceremonies;
 
 use PHPUnit\Framework\TestCase;
-use WpPasskeys\Ceremonies\AuthEndpoints;
-use Brain\Monkey\Functions;
 use Mockery;
-use WP_Error;
+use Brain\Monkey;
+use Brain\Monkey\Functions;
+use Webauthn\AuthenticationExtensions\ExtensionOutputCheckerHandler;
+use Webauthn\AuthenticatorAssertionResponse;
+use Webauthn\AuthenticatorAssertionResponseValidator;
+use Webauthn\PublicKeyCredential;
+use Webauthn\PublicKeyCredentialLoader;
 use WP_REST_Response;
+use WpPasskeys\Ceremonies\AuthEndpoints;
+use WpPasskeys\Credentials\SessionHandler;
+use WpPasskeys\Credentials\CredentialHelperInterface;
+use WpPasskeys\AlgorithmManager\AlgorithmManager;
+
+use function random_bytes;
 
 class AuthEndpointsTest extends TestCase
 {
-    protected $authEndpoints;
+    protected AuthEndpoints $authEndpoints;
+    protected $mockUtilities;
+    protected $mockSession;
     protected $mockRequest;
-    protected $mockError;
-    protected $mockResponse;
+    protected $mockLoader;
+    protected $mockValidator;
+    protected $mockHelper;
+    protected $mockManager;
 
     protected function setUp(): void
     {
         parent::setUp();
-        $this->authEndpoints = Mockery::mock(AuthEndpoints::class)->makePartial();
+        Monkey\setUp();
 
-        // Mock WP_REST_Request
+        Mockery::mock('WP_Error');
+
+        $this->mockLoader = Mockery::mock(PublicKeyCredentialLoader::class);
+        $this->mockValidator = Mockery::mock(AuthenticatorAssertionResponseValidator::class);
+        $this->mockHelper = Mockery::mock(CredentialHelperInterface::class);
+        $this->mockManager = Mockery::mock(AlgorithmManager::class);
+
+        $this->mockUtilities = Mockery::mock('alias:WpPasskeys\Utilities')
+            ->shouldReceive('getHostname')
+            ->andReturn('example.com');
+        $this->mockSession = Mockery::mock('alias:WpPasskeys\SessionHandler')
+            ->shouldReceive('set')
+            ->andReturn(true);
+
         $this->mockRequest = Mockery::mock('WP_REST_Request');
-        $this->mockRequest->shouldReceive('get_body')->andReturn('someRequestBody');
-        $this->mockRequest->shouldReceive('get_param')->andReturn('someParam');
 
-        // Mock WP_Error
-        $this->mockError = Mockery::mock(WP_Error::class);
-        $this->mockError->shouldReceive('get_error_data')
-                        ->with('status')
-                        ->andReturn(400);
+        Mockery::mock('WP_REST_Response');
 
-        // Mock WP_REST_Response
-        $this->mockResponse = Mockery::mock(WP_REST_Response::class);
-        $this->mockResponse->shouldReceive('set_status')->andReturn(200);
-        $this->mockResponse->shouldReceive('get_status')->andReturn(200);
-        $this->mockResponse->shouldReceive('set_data')->andReturn(['someData']);
-        $this->mockResponse->shouldReceive('get_data')->andReturn(['someData']);
+        $this->authEndpoints = new AuthEndpoints(
+            $this->mockLoader,
+            $this->mockValidator,
+            $this->mockHelper,
+            $this->mockManager
+        );
+        $this->authEndpoints->createPublicKeyCredentialOptions($this->mockRequest);
     }
 
     protected function tearDown(): void
     {
+        Monkey\tearDown();
         Mockery::close();
         parent::tearDown();
     }
 
-    public function testCreatePublicKeyCredentialOptions(): void
+    public function testChallengeLength(): void
     {
-        Functions\when('get_site_url')->justReturn('http://example.com');
-
-        $this->authEndpoints->shouldReceive('createPublicKeyCredentialOptions')
-                            ->once()
-                            ->with($this->mockRequest)
-                            ->andReturn($this->mockResponse);
-
-        $result = $this->authEndpoints->createPublicKeyCredentialOptions($this->mockRequest);
-
-        $this->assertEquals(200, $result->get_status());
+        $options = $this->authEndpoints->getOptions();
+        $this->assertEquals(32, strlen($options->getChallenge()));
     }
 
-    public function testVerifyPublicKeyCredentialsSuccess(): void
+    public function testAllowCredentials(): void
     {
-        $this->authEndpoints->shouldReceive('verifyPublicKeyCredentials')
-                            ->once()
-                            ->with($this->mockRequest)
-                            ->andReturn($this->mockResponse);
-
-        $result = $this->authEndpoints->verifyPublicKeyCredentials($this->mockRequest);
-
-        $this->assertEquals(200, $result->get_status());
+        $options = $this->authEndpoints->getOptions();
+        $this->assertEquals([], $options->allowCredentials);
     }
 
-    public function testVerifyPublicKeyCredentialsError(): void
+    public function testUserVerification(): void
     {
-        $this->authEndpoints->shouldReceive('verifyPublicKeyCredentials')
-                            ->once()
-                            ->with($this->mockRequest)
-                            ->andReturn($this->mockError);
+        $options = $this->authEndpoints->getOptions();
+        $this->assertEquals('required', $options->userVerification);
+    }
 
-        $result = $this->authEndpoints->verifyPublicKeyCredentials($this->mockRequest);
+    public function testResponseType(): void
+    {
+        $response = $this->authEndpoints->createPublicKeyCredentialOptions($this->mockRequest);
+        $this->assertInstanceOf(WP_REST_Response::class, $response);
+    }
 
-        $this->assertEquals(400, $result->get_error_data('status'));
+    public function testSessionHandlerSetAndGet(): void
+    {
+        // Act
+        $this->authEndpoints->createPublicKeyCredentialOptions($this->mockRequest);
+        // Assert
+        $sessionData = SessionHandler::get('pk_credential_request_options');
+        $this->assertNotEmpty($sessionData);
+    }
+
+    public function testPublicKeyCredentialLoaderCalledWithCorrectBody(): void
+    {
+        $this->mockLoader->shouldReceive('load')->once()->with('requestBody');
+
+        $this->mockRequest->shouldReceive('get_body')->andReturn('requestBody');
+
+        $this->authEndpoints->verifyPublicKeyCredentials($this->mockRequest);
+
+        $this->addToAssertionCount(1);
+    }
+
+    public function testAuthenticatorAssertionResponseValidatorCreateCalledWithExpectedArgs(): void
+    {
+        $mockedResponse = Mockery::mock(AuthenticatorAssertionResponse::class);
+
+        $this->mockRequest->shouldReceive('get_body')->andReturn('requestBody');
+
+        $mockedPublicKeyCredential = Mockery::mock(PublicKeyCredential::class);
+        $mockedPublicKeyCredential->shouldReceive('getResponse')
+                                  ->once()
+                                  ->andReturn($mockedResponse);
+
+        $mockedPublicKeyCredentialLoader = Mockery::mock(PublicKeyCredentialLoader::class);
+        $mockedPublicKeyCredentialLoader->shouldReceive('load')
+                                        ->once()
+                                        ->andReturn($mockedPublicKeyCredential);
+
+        $finalObject = new \Cose\Algorithm\Manager();
+        $mock = \Mockery::mock($finalObject)->makePartial();
+
+        $mock->shouldReceive('init')
+                            ->once()->withNoArgs();
+
+        $this->mockRequest->shouldReceive('has_param')->once();
+
+        $authEndpoints = new AuthEndpoints(
+            $mockedPublicKeyCredentialLoader,
+            $this->mockValidator,
+            $this->mockHelper,
+            $this->mockManager
+        );
+
+
+        $authEndpoints->verifyPublicKeyCredentials($this->mockRequest);
+
+        $this->addToAssertionCount(1);
     }
 }

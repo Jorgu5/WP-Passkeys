@@ -28,16 +28,10 @@ use Cose\Algorithm\Signature\RSA\RS384;
 use Cose\Algorithm\Signature\RSA\RS512;
 use InvalidArgumentException;
 
-/**
- * Algorithm Manager for WP Pass Keys.
- */
-class AlgorithmManager
+class AlgorithmManager implements AlgorithmManagerInterface
 {
     private array $algorithms;
 
-    /**
-     * Constructor for the class.
-     */
     public function init(): Manager
     {
         return Manager::create()->add(
@@ -56,11 +50,6 @@ class AlgorithmManager
         );
     }
 
-    /**
-     * Retrieves the algorithm manager instance.
-     *
-     * @return array The algorithm manager instance.
-     */
     public function getAlgorithmIdentifiers(): array
     {
         return array(
@@ -79,11 +68,6 @@ class AlgorithmManager
         );
     }
 
-    /**
-     * @param int $identifier
-     *
-     * @return Algorithm
-     */
     public function get(int $identifier): Algorithm
     {
         if (! $this->has($identifier)) {
@@ -93,11 +77,6 @@ class AlgorithmManager
         return $this->algorithms[$identifier];
     }
 
-    /**
-     * @param int $identifier
-     *
-     * @return bool
-     */
     public function has(int $identifier): bool
     {
         // Check if the algorithm exists in the array

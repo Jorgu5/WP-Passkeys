@@ -4,11 +4,8 @@ declare(strict_types=1);
 
 namespace WpPasskeys\Tests\Unit\Admin;
 
-use Brain\Monkey\Actions;
 use Brain\Monkey\Expectation\Exception\ExpectationArgsRequired;
-use Brain\Monkey\Filters;
 use Brain\Monkey\Functions;
-use PsalmWordPress\Plugin;
 use WpPasskeys\Admin\PluginSettings;
 use WpPasskeys\Tests\TestCase;
 
