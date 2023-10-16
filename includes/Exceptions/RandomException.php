@@ -4,7 +4,7 @@ namespace WpPasskeys\Exceptions;
 
 use Exception;
 
-class CredentialException extends CustomException
+class RandomException extends CustomException
 {
     public function __construct($message = "", $code = 0, Exception $previous = null)
     {

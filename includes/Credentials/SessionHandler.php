@@ -4,34 +4,34 @@ namespace WpPasskeys\Credentials;
 
 class SessionHandler implements SessionHandlerInterface
 {
-    public static function set($key, $value): void
+    public function set(string $key, mixed $value): void
     {
         $_SESSION[$key] = $value;
     }
 
-    public static function get($key)
+    public function get(string $key): mixed
     {
         return $_SESSION[$key] ?? null;
     }
 
-    public static function has($key): bool
+    public function has($key): bool
     {
         return isset($_SESSION[$key]);
     }
 
-    public static function remove($key): void
+    public function remove($key): void
     {
         unset($_SESSION[$key]);
     }
 
-    public static function start(): void
+    public function start(): void
     {
         if (session_status() === PHP_SESSION_NONE) {
             session_start();
         }
     }
 
-    public static function destroy(): void
+    public function destroy(): void
     {
         session_destroy();
     }

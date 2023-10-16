@@ -11,46 +11,29 @@ use Webauthn\PublicKeyCredentialRpEntity;
 use Webauthn\PublicKeyCredentialUserEntity;
 use WP_User;
 
-class Utilities
+class Utilities implements UtilitiesInterface
 {
-
-    /**
-     * Retrieves the hostname of the current site.
-     *
-     * @return string The hostname of the current site.
-     */
-    public static function getHostname(): string
+    public function getHostname(): string
     {
         $site_url = get_site_url();
         return parse_url($site_url, PHP_URL_HOST);
     }
 
-    /**
-     * Encodes the given data into a URL-safe base64 string.
-     *
-     * @param mixed $data The data to be encoded.
-     * @return string The URL-safe base64 encoded string.
-     */
-    public static function safeEncode(mixed $data): string
-    {
-        return rtrim(strtr(base64_encode($data), '+/', '-_'), '=');
-    }
-
-    public static function setAuthCookie(string $username = null, int $userId = null): void
+    public function setAuthCookie(string $username = null, int $userId = null): void
     {
         $user = null;
 
         if ($userId) {
             $user = get_user_by('id', $userId);
             if ($user) {
-                self::setUserAndCookie($user);
+                $this->setUserAndCookie($user);
             }
         }
 
         if ($username) {
             $user = get_user_by('login', $username);
             if ($user) {
-                self::setUserAndCookie($user);
+                $this->setUserAndCookie($user);
             }
         }
 
@@ -59,18 +42,26 @@ class Utilities
         }
     }
 
-    private static function setUserAndCookie($user): void
-    {
-        wp_set_current_user($user->ID, $user->user_login);
-        wp_set_auth_cookie($user->ID, true);
-    }
-
-    public static function getRedirectUrl(): string
+    public function getRedirectUrl(): string
     {
         $redirectUrl = get_option('wppk_passkeys_redirect');
         if (empty($redirectUrl)) {
             $redirectUrl = get_admin_url();
         }
         return $redirectUrl;
+    }
+
+    public function setUserAndCookie(WP_User|null $user): void
+    {
+        if (!$user) {
+            return;
+        }
+        wp_set_current_user($user->ID, $user->user_login);
+        wp_set_auth_cookie($user->ID, true);
+    }
+
+    public static function safeEncode(string $data): string
+    {
+        return rtrim(strtr(base64_encode($data), '+/', '-_'), '=');
     }
 }

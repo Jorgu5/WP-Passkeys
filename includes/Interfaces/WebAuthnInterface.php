@@ -29,6 +29,9 @@ interface WebAuthnInterface
         WP_REST_Request $request
     ): WP_REST_Response|WP_Error;
 
+    /**
+     * array @return array<array-key, mixed>
+     */
     public function getVerifiedResponse(): array;
 
 }

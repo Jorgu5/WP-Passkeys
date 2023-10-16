@@ -4,15 +4,15 @@ namespace WpPasskeys\Credentials;
 
 interface SessionHandlerInterface
 {
-    public static function set($key, $value): void;
+    public function set(string $key, mixed $value): void;
 
-    public static function get($key);
+    public function get(string $key): mixed;
 
-    public static function has($key): bool;
+    public function has(string $key): bool;
 
-    public static function remove($key): void;
+    public function remove(string $key): void;
 
-    public static function start(): void;
+    public function start(): void;
 
-    public static function destroy(): void;
+    public function destroy(): void;
 }
