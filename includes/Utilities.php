@@ -13,11 +13,6 @@ use WP_User;
 
 class Utilities implements UtilitiesInterface
 {
-    public function getHostname(): string
-    {
-        $site_url = get_site_url();
-        return parse_url($site_url, PHP_URL_HOST);
-    }
 
     public function setAuthCookie(string $username = null, int $userId = null): void
     {
@@ -63,5 +58,11 @@ class Utilities implements UtilitiesInterface
     public static function safeEncode(string $data): string
     {
         return rtrim(strtr(base64_encode($data), '+/', '-_'), '=');
+    }
+
+    public static function getHostname(): string
+    {
+        $site_url = get_site_url();
+        return parse_url($site_url, PHP_URL_HOST);
     }
 }

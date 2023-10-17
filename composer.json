@@ -45,6 +45,7 @@
   "require": {
     "ext-intl": "*",
     "alleyinteractive/composer-wordpress-autoloader": "^1.0",
+    "league/container": "^4.2",
     "web-auth/webauthn-lib": "^4.7"
   }
 }

@@ -2,24 +2,13 @@
 
 namespace WpPasskeys;
 
-use Webauthn\AttestationStatement\AttestationObjectLoader;
-use Webauthn\AttestationStatement\AttestationStatementSupportManager;
-use Webauthn\AuthenticationExtensions\ExtensionOutputCheckerHandler;
-use Webauthn\AuthenticatorAssertionResponseValidator;
-use Webauthn\PublicKeyCredentialLoader;
+use Psr\Container\ContainerExceptionInterface;
+use Psr\Container\NotFoundExceptionInterface;
 use WpPasskeys\Admin\PluginSettings;
 use WpPasskeys\Admin\UserSettings;
-use WpPasskeys\Ceremonies\AuthEndpoints;
-use WpPasskeys\Ceremonies\RegisterEndpoints;
-use WpPasskeys\Credentials\CredentialEntity;
-use WpPasskeys\Credentials\CredentialsEndpoints;
-use WpPasskeys\Credentials\CredentialHelper;
-use WpPasskeys\Credentials\SessionHandler;
 use WpPasskeys\Form\FormHandler;
 use WpPasskeys\RestApi\RestApiHandler;
-use WpPasskeys\AlgorithmManager\AlgorithmManager;
-use WpPasskeys\Ceremonies\PublicKeyCredentialParameters;
-use WpPasskeys\Ceremonies\PublicKeyCredentialParametersFactory;
+use League\Container\Container;
 
 require_once ABSPATH . 'wp-admin/includes/upgrade.php';
 
@@ -28,56 +17,20 @@ require_once ABSPATH . 'wp-admin/includes/upgrade.php';
  */
 class PasskeysPlugin
 {
-    private RestApiHandler $restApiHandler;
-
-    public function __construct(RestApiHandler $restApiHandler)
-    {
-
-        $this->restApiHandler = $restApiHandler;
-    }
+    public function __construct(
+        private readonly RestApiHandler $restApiHandler,
+    ) {}
 
 
+    /**
+     * @throws ContainerExceptionInterface
+     * @throws NotFoundExceptionInterface
+     */
     public static function make(): self
     {
-        $restApiHandler = new RestApiHandler(
-            new AuthEndpoints(
-                new PublicKeyCredentialLoader(
-                    AttestationObjectLoader::create(
-                        AttestationStatementSupportManager::create()
-                    )
-                ),
-                new AuthenticatorAssertionResponseValidator(
-                    null,
-                    null,
-                    ExtensionOutputCheckerHandler::create(),
-                    null,
-                ),
-                new CredentialHelper(
-                    new SessionHandler()
-                ),
-                new AlgorithmManager(),
-                new Utilities(),
-                new SessionHandler()
-            ),
-            new RegisterEndpoints(
-                new CredentialHelper(
-                    new SessionHandler()
-                ),
-                new CredentialEntity(),
-                new Utilities(),
-                new SessionHandler(),
-                new PublicKeyCredentialParameters(
-                    new AlgorithmManager(),
-                    new PublicKeyCredentialParametersFactory()
-                ),
-                new PublicKeyCredentialLoader(
-                    AttestationObjectLoader::create(
-                        AttestationStatementSupportManager::create()
-                    )
-                )
-            ),
-            new CredentialsEndpoints()
-        );
+        $container = new Container;
+        $container->addServiceProvider(new ServiceProvider());
+        $restApiHandler = $container->get(RestApiHandler::class);
 
         return new self($restApiHandler);
     }

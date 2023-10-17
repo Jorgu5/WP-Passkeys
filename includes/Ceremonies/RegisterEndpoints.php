@@ -61,7 +61,7 @@ class RegisterEndpoints implements RegisterEndpointsInterface
                 $this->getPkParameters(),
             );
 
-            $this->publicKeyCredentialCreationOptions->timeout = (int)get_option('wppk_passkeys_timeout', '30000');
+            $this->publicKeyCredentialCreationOptions->timeout = $this->getTimeout();
             $this->publicKeyCredentialCreationOptions->authenticatorSelection = AuthenticatorSelectionCriteria::create(
                 AuthenticatorSelectionCriteria::AUTHENTICATOR_ATTACHMENT_PLATFORM,
                 AuthenticatorSelectionCriteria::USER_VERIFICATION_REQUIREMENT_REQUIRED,
@@ -169,5 +169,9 @@ class RegisterEndpoints implements RegisterEndpointsInterface
     public function getRedirectUrl(): string
     {
         return !is_user_logged_in() ? $this->utilities->getRedirectUrl() : '';
+    }
+
+    public function getTimeout(): int {
+        return (int)get_option('wppk_passkeys_timeout', '30000');
     }
 }
