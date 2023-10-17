@@ -57,7 +57,5 @@ interface RegisterEndpointsInterface
 
     public function getAuthenticatorAttestationResponse(PublicKeyCredential $pkCredential): AuthenticatorAttestationResponse;
 
-    public function getAttestationStatementSupportManager(): AttestationStatementSupportManager;
-
     public function getRedirectUrl(): string;
 }

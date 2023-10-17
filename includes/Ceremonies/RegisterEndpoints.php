@@ -16,6 +16,7 @@ use Exception;
 use JsonException;
 use RuntimeException;
 use Throwable;
+use Webauthn\AttestationStatement\AppleAttestationStatementSupport;
 use Webauthn\AttestationStatement\AttestationStatementSupportManager;
 use Webauthn\AttestationStatement\NoneAttestationStatementSupport;
 use Webauthn\AuthenticationExtensions\ExtensionOutputCheckerHandler;
@@ -37,7 +38,6 @@ use WpPasskeys\UtilitiesInterface;
 class RegisterEndpoints implements RegisterEndpointsInterface
 {
     private array $verifiedResponse;
-    private AttestationStatementSupportManager $attestationStatementSupportManager;
     private PublicKeyCredentialCreationOptions $publicKeyCredentialCreationOptions;
 
     public function __construct(
@@ -46,7 +46,8 @@ class RegisterEndpoints implements RegisterEndpointsInterface
         public readonly UtilitiesInterface $utilities,
         public readonly SessionHandlerInterface $sessionHandler,
         public readonly PublicKeyCredentialParameters $publicKeyCredentialParameters,
-        public readonly PublicKeyCredentialLoader $publicKeyCredentialLoader
+        public readonly PublicKeyCredentialLoader $publicKeyCredentialLoader,
+        public readonly AttestationStatementSupportManager $attestationStatementSupportManager,
     ) {
     }
 
@@ -106,17 +107,17 @@ class RegisterEndpoints implements RegisterEndpointsInterface
                 'code' => 'verified',
                 'message' => 'Your account has been created. You are being redirect now to dashboard...',
                 'data' => [
-                    'redirectUrl' => $this->getRedirectUrl(),
+                    'redirectUrl' => $this->utilities->getRedirectUrl(),
                     'pk_credential_id' => $pkCredential->id,
                 ]];
 
             $response = new WP_REST_Response($this->verifiedResponse, 200);
         } catch (JsonException $e) {
-            $response = new WP_Error('json', $e->getMessage());
+            $response = new WP_Error('json', $e->getMessage(), $e->getTrace());
         } catch (CredentialException $e) {
-            $response = new WP_Error('credential-error', $e->getMessage());
+            $response = new WP_Error('credential-error', $e->getMessage(), $e->getTrace());
         } catch (Throwable $e) {
-            $response = new WP_Error('server', $e->getMessage());
+            $response = new WP_Error('server', $e->getMessage(), $e->getTrace());
         }
 
         return $response;
@@ -158,20 +159,13 @@ class RegisterEndpoints implements RegisterEndpointsInterface
         return $authenticatorAttestationResponse;
     }
 
-    public function getAttestationStatementSupportManager(): AttestationStatementSupportManager
-    {
-        $this->attestationStatementSupportManager = AttestationStatementSupportManager::create();
-        $this->attestationStatementSupportManager->add(NoneAttestationStatementSupport::create());
-
-        return $this->attestationStatementSupportManager;
-    }
-
     public function getRedirectUrl(): string
     {
         return !is_user_logged_in() ? $this->utilities->getRedirectUrl() : '';
     }
 
-    public function getTimeout(): int {
-        return (int)get_option('wppk_passkeys_timeout', '30000');
+    public function getTimeout(): int
+    {
+        return (int)get_option('wppk_passkeys_timeout', 30000);
     }
 }

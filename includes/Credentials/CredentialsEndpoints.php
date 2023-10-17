@@ -30,7 +30,7 @@ class CredentialsEndpoints implements CredentialsEndpointsInterface
             $savedData[$userKey] = $sanitizedValue;
         }
 
-        SessionHandler::set('user_data', $savedData);
+        (new SessionHandler())->set('user_data', $savedData);
 
         $savedKeys = implode(', ', array_keys($savedData));
 

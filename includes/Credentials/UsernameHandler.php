@@ -10,8 +10,10 @@ class UsernameHandler
     {
         $userData = [];
 
-        if (SessionHandler::has('user_data')) {
-            $userData = SessionHandler::get('user_data');
+        $sessionHandler = new SessionHandler();
+
+        if ($sessionHandler->has('user_data')) {
+            $userData = $sessionHandler->get('user_data');
         }
 
         $userEmail = $userData['user_email'] ?? '';

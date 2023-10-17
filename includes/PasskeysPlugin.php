@@ -19,7 +19,8 @@ class PasskeysPlugin
 {
     public function __construct(
         private readonly RestApiHandler $restApiHandler,
-    ) {}
+    ) {
+    }
 
 
     /**
@@ -28,7 +29,7 @@ class PasskeysPlugin
      */
     public static function make(): self
     {
-        $container = new Container;
+        $container = new Container();
         $container->addServiceProvider(new ServiceProvider());
         $restApiHandler = $container->get(RestApiHandler::class);
 

@@ -28,7 +28,6 @@ class RestApiHandler extends AbstractApiHandler
         private readonly RegisterEndpointsInterface $registerEndpoints,
         private readonly CredentialsEndpointsInterface $credentialEndpoints,
     ) {
-
     }
     public static function register(RestApiHandler $apiHandler): void
     {

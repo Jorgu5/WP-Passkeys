@@ -5,6 +5,7 @@ namespace WpPasskeys;
 use League\Container\ServiceProvider\AbstractServiceProvider;
 use Webauthn\AttestationStatement\AttestationObjectLoader;
 use Webauthn\AttestationStatement\AttestationStatementSupportManager;
+use Webauthn\AttestationStatement\NoneAttestationStatementSupport;
 use Webauthn\AuthenticationExtensions\ExtensionOutputCheckerHandler;
 use Webauthn\AuthenticatorAssertionResponseValidator;
 use Webauthn\PublicKeyCredentialLoader;
@@ -44,6 +45,7 @@ class ServiceProvider extends AbstractServiceProvider
         AttestationObjectLoader::class,
         AttestationStatementSupportManager::class,
         CredentialEntityInterface::class,
+        FormHandler::class,
         UtilitiesInterface::class,
     ];
 
@@ -55,9 +57,12 @@ class ServiceProvider extends AbstractServiceProvider
     public function register(): void
     {
         $container = $this->getContainer();
+        $container->add(AttestationStatementSupportManager::class, function () {
+            $manager = AttestationStatementSupportManager::create();
+            $manager->add(NoneAttestationStatementSupport::create());
+            return $manager;
+        });
 
-        // Register the lower-level dependencies first
-        $container->add(AttestationStatementSupportManager::class, AttestationStatementSupportManager::create());
         $container->add(AttestationObjectLoader::class)
                   ->addArgument(AttestationStatementSupportManager::class);
         $container->add(PublicKeyCredentialLoader::class)
@@ -103,6 +108,7 @@ class ServiceProvider extends AbstractServiceProvider
                       SessionHandlerInterface::class,
                       PublicKeyCredentialParameters::class,
                       PublicKeyCredentialLoader::class,
+                      AttestationStatementSupportManager::class,
                   ]);
 
         $container->add(RestApiHandler::class)
