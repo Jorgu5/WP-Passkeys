@@ -52,7 +52,7 @@ class AlgorithmManager implements AlgorithmManagerInterface
 
     public function getAlgorithmIdentifiers(): array
     {
-        return array(
+        return [
             ES256::identifier()  => -7,  // ECDSA w/ SHA-256
             ES256K::identifier() => -47, // ECDSA w/ SHA-256 with secp256k1 curve
             ES384::identifier()  => -35, // ECDSA w/ SHA-384
@@ -65,7 +65,7 @@ class AlgorithmManager implements AlgorithmManagerInterface
             PS512::identifier()  => -39, // RSA w/ SHA-512 and PSS
             Ed256::identifier()  => -8,  // EdDSA w/ Ed25519
             Ed512::identifier()  => -9,   // EdDSA w/ Ed448
-        );
+        ];
     }
 
     public function get(int $identifier): Algorithm

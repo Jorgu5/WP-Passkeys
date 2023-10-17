@@ -115,7 +115,9 @@ class PluginSettingsTest extends TestCase
             ->with('wppk_require_userdata', []);
 
         $pluginSettings = new PluginSettings();
+        ob_start();
         $pluginSettings->requireUserdataCallback(['label' => 'test label']);
+        ob_get_clean();
     }
 
     /**

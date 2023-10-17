@@ -14,9 +14,12 @@ use WpPasskeys\Ceremonies\RegisterEndpoints;
 use WpPasskeys\Credentials\CredentialEntity;
 use WpPasskeys\Credentials\CredentialsEndpoints;
 use WpPasskeys\Credentials\CredentialHelper;
+use WpPasskeys\Credentials\SessionHandler;
 use WpPasskeys\Form\FormHandler;
 use WpPasskeys\RestApi\RestApiHandler;
 use WpPasskeys\AlgorithmManager\AlgorithmManager;
+use WpPasskeys\Ceremonies\PublicKeyCredentialParameters;
+use WpPasskeys\Ceremonies\PublicKeyCredentialParametersFactory;
 
 require_once ABSPATH . 'wp-admin/includes/upgrade.php';
 
@@ -29,6 +32,7 @@ class PasskeysPlugin
 
     public function __construct(RestApiHandler $restApiHandler)
     {
+
         $this->restApiHandler = $restApiHandler;
     }
 
@@ -48,12 +52,29 @@ class PasskeysPlugin
                     ExtensionOutputCheckerHandler::create(),
                     null,
                 ),
-                new CredentialHelper(),
+                new CredentialHelper(
+                    new SessionHandler()
+                ),
                 new AlgorithmManager(),
+                new Utilities(),
+                new SessionHandler()
             ),
             new RegisterEndpoints(
-                new CredentialHelper(),
-                new CredentialEntity()
+                new CredentialHelper(
+                    new SessionHandler()
+                ),
+                new CredentialEntity(),
+                new Utilities(),
+                new SessionHandler(),
+                new PublicKeyCredentialParameters(
+                    new AlgorithmManager(),
+                    new PublicKeyCredentialParametersFactory()
+                ),
+                new PublicKeyCredentialLoader(
+                    AttestationObjectLoader::create(
+                        AttestationStatementSupportManager::create()
+                    )
+                )
             ),
             new CredentialsEndpoints()
         );

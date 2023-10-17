@@ -16,78 +16,49 @@ use Exception;
 use JsonException;
 use RuntimeException;
 use Throwable;
-use Webauthn\AttestationStatement\AttestationObjectLoader;
 use Webauthn\AttestationStatement\AttestationStatementSupportManager;
 use Webauthn\AttestationStatement\NoneAttestationStatementSupport;
 use Webauthn\AuthenticationExtensions\ExtensionOutputCheckerHandler;
 use Webauthn\AuthenticatorAttestationResponse;
 use Webauthn\AuthenticatorSelectionCriteria;
+use Webauthn\Exception\InvalidDataException;
+use Webauthn\PublicKeyCredential;
 use Webauthn\PublicKeyCredentialCreationOptions;
 use Webauthn\PublicKeyCredentialLoader;
-use Webauthn\PublicKeyCredentialParameters;
-use Webauthn\PublicKeyCredentialRequestOptions;
 use WP_Error;
 use WP_REST_Request;
 use WP_REST_Response;
-use WpPasskeys\AlgorithmManager\AlgorithmManager;
 use WpPasskeys\Credentials\CredentialEntityInterface;
 use WpPasskeys\Credentials\CredentialHelperInterface;
-use WpPasskeys\Credentials\SessionHandler;
+use WpPasskeys\Credentials\SessionHandlerInterface;
 use WpPasskeys\Exceptions\CredentialException;
-use WpPasskeys\Interfaces\WebAuthnInterface;
-use WpPasskeys\Utilities as Util;
+use WpPasskeys\UtilitiesInterface;
 
-/**
- * Registration Handler for WP Pass Keys.
- */
-class RegisterEndpoints implements WebAuthnInterface
+class RegisterEndpoints implements RegisterEndpointsInterface
 {
-    public readonly AuthenticatorAttestationResponse $authenticatorAttestationResponse;
-    public readonly PublicKeyCredentialCreationOptions $publicKeyCredentialCreationOptions;
-    public readonly PublicKeyCredentialLoader $publicKeyCredentialLoader;
-    public readonly AttestationObjectLoader $attestationObjectLoader;
-    public readonly AttestationStatementSupportManager $attestationStatementSupportManager;
-    public readonly CredentialHelperInterface $credentialHelper;
-    public readonly CredentialEntityInterface $credentialEntity;
-
     private array $verifiedResponse;
+    private AttestationStatementSupportManager $attestationStatementSupportManager;
+    private PublicKeyCredentialCreationOptions $publicKeyCredentialCreationOptions;
 
     public function __construct(
-        CredentialHelperInterface $credentialHelper,
-        CredentialEntityInterface $credentialEntity
+        public readonly CredentialHelperInterface $credentialHelper,
+        public readonly CredentialEntityInterface $credentialEntity,
+        public readonly UtilitiesInterface $utilities,
+        public readonly SessionHandlerInterface $sessionHandler,
+        public readonly PublicKeyCredentialParameters $publicKeyCredentialParameters,
+        public readonly PublicKeyCredentialLoader $publicKeyCredentialLoader
     ) {
-        $this->credentialHelper = $credentialHelper;
-        $this->credentialEntity = $credentialEntity;
     }
 
-    /**
-     * Creates the public key credential creation options.
-     *
-     * @param WP_REST_Request $request the REST request object.
-     * @throws RuntimeException If an error occurs during the process.
-     * @return WP_REST_Response A REST response object with the result.
-     */
     public function createPublicKeyCredentialOptions(WP_REST_Request $request): WP_REST_Response
     {
         try {
-            $algorithmManager = new AlgorithmManager();
-            $challenge                        = base64_encode(random_bytes(32));
-            $algorithmManagerKeys           = $algorithmManager->getAlgorithmIdentifiers();
-            $publicKeyCredentialParameters = array();
-            $userLogin = SessionHandler::get('user_data')['user_login'];
-
-            foreach ($algorithmManagerKeys as $algorithmNumber) {
-                $publicKeyCredentialParameters[] = new PublicKeyCredentialParameters(
-                    'public-key',
-                    $algorithmNumber
-                );
-            }
-
+            $userLogin = $this->credentialHelper->getUserLogin();
             $this->publicKeyCredentialCreationOptions = PublicKeyCredentialCreationOptions::create(
                 $this->credentialEntity->createRpEntity(),
                 $this->credentialEntity->createUserEntity($userLogin),
-                $challenge,
-                $publicKeyCredentialParameters,
+                $this->getChallenge(),
+                $this->getPkParameters(),
             );
 
             $this->publicKeyCredentialCreationOptions->timeout = (int)get_option('wppk_passkeys_timeout', '30000');
@@ -111,42 +82,23 @@ class RegisterEndpoints implements WebAuthnInterface
         }
     }
 
-    /**
-     * Handles the creation response.
-     *
-     * @param WP_REST_Request $request the REST request object.
-     *
-     * @return WP_Error|WP_REST_Response a REST response object with the result.
-     */
     public function verifyPublicKeyCredentials(
         WP_REST_Request $request
     ): WP_Error|WP_REST_Response {
         try {
-            $data                                        = $request->get_body();
-            $this->attestationStatementSupportManager = AttestationStatementSupportManager::create();
-            $this->attestationStatementSupportManager->add(NoneAttestationStatementSupport::create());
-
-            $this->attestationObjectLoader    = new AttestationObjectLoader($this->attestationStatementSupportManager);
-            $this->publicKeyCredentialLoader = new PublicKeyCredentialLoader($this->attestationObjectLoader);
-            $publicKeyCredential              = $this->publicKeyCredentialLoader->load($data);
-            $authenticatorAttestationResponse = $publicKeyCredential->response;
-            if (! $authenticatorAttestationResponse instanceof AuthenticatorAttestationResponse) {
-                wp_redirect(wp_login_url());
-            }
-            $this->authenticatorAttestationResponse = $authenticatorAttestationResponse;
-
+            $pkCredential = $this->getPkCredential($request);
             $this->credentialHelper->storePublicKeyCredentialSource(
                 $this->credentialHelper->getPublicKeyCredentials(
-                    $this->authenticatorAttestationResponse,
+                    $this->getAuthenticatorAttestationResponse(
+                        $pkCredential
+                    ),
                     $this->attestationStatementSupportManager,
                     ExtensionOutputCheckerHandler::create(),
                 )
             );
 
-            $redirectUrl = !is_user_logged_in() ? Util::getRedirectUrl() : '';
-
-            Util::setAuthCookie(
-                SessionHandler::get('user_data')['user_login'],
+            $this->utilities->setAuthCookie(
+                $this->credentialHelper->getUserLogin(),
                 null
             );
 
@@ -154,9 +106,9 @@ class RegisterEndpoints implements WebAuthnInterface
                 'code' => 'verified',
                 'message' => 'Your account has been created. You are being redirect now to dashboard...',
                 'data' => [
-                    'redirectUrl' => $redirectUrl,
-                    'pk_credential_id' => $publicKeyCredential->id,
-            ]];
+                    'redirectUrl' => $this->getRedirectUrl(),
+                    'pk_credential_id' => $pkCredential->id,
+                ]];
 
             $response = new WP_REST_Response($this->verifiedResponse, 200);
         } catch (JsonException $e) {
@@ -178,5 +130,44 @@ class RegisterEndpoints implements WebAuthnInterface
     public function getVerifiedResponse(): array
     {
         return $this->verifiedResponse;
+    }
+
+    public function getChallenge(): string
+    {
+        return base64_encode(random_bytes(32));
+    }
+
+    public function getPkParameters(): array
+    {
+        return $this->publicKeyCredentialParameters->get();
+    }
+
+    public function getPkCredential(WP_REST_Request $request): PublicKeyCredential
+    {
+        $data = $request->get_body();
+        return $this->publicKeyCredentialLoader->load($data);
+    }
+
+    public function getAuthenticatorAttestationResponse(
+        PublicKeyCredential $pkCredential
+    ): AuthenticatorAttestationResponse {
+        $authenticatorAttestationResponse = $pkCredential->response;
+        if (! $authenticatorAttestationResponse instanceof AuthenticatorAttestationResponse) {
+            wp_redirect(wp_login_url());
+        }
+        return $authenticatorAttestationResponse;
+    }
+
+    public function getAttestationStatementSupportManager(): AttestationStatementSupportManager
+    {
+        $this->attestationStatementSupportManager = AttestationStatementSupportManager::create();
+        $this->attestationStatementSupportManager->add(NoneAttestationStatementSupport::create());
+
+        return $this->attestationStatementSupportManager;
+    }
+
+    public function getRedirectUrl(): string
+    {
+        return !is_user_logged_in() ? $this->utilities->getRedirectUrl() : '';
     }
 }

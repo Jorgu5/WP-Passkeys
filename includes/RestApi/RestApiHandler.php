@@ -6,11 +6,12 @@ use ReflectionClass;
 use ReflectionException;
 use WpPasskeys\Credentials\CredentialsEndpointsInterface;
 use WpPasskeys\Credentials\SessionHandler;
-use WpPasskeys\Interfaces\WebAuthnInterface;
+use WpPasskeys\Ceremonies\AuthEndpointsInterface;
+use WpPasskeys\Ceremonies\RegisterEndpointsInterface;
 
 /**
- * @property WebAuthnInterface $authEndpoints
- * @property WebAuthnInterface $registerEndpoints
+ * @property AuthEndpointsInterface $authEndpoints
+ * @property RegisterEndpointsInterface $registerEndpoints
  * @property CredentialsEndpointsInterface $credentialEndpoints
  */
 class RestApiHandler extends AbstractApiHandler
@@ -20,23 +21,19 @@ class RestApiHandler extends AbstractApiHandler
     private const REGISTER_NAMESPACE = '/register';
     private const AUTH_NAMESPACE = '/authenticator';
     private const CREDENTIAL_NAMESPACE = 'creds';
-    private WebAuthnInterface $authEndpoints;
-    private WebAuthnInterface $registerEndpoints;
-    private CredentialsEndpointsInterface $credentialEndpoints;
+
 
     public function __construct(
-        WebAuthnInterface $authEndpoints,
-        WebAuthnInterface $registerEndpoints,
-        CredentialsEndpointsInterface $credentialEndpoints
+        private readonly AuthEndpointsInterface $authEndpoints,
+        private readonly RegisterEndpointsInterface $registerEndpoints,
+        private readonly CredentialsEndpointsInterface $credentialEndpoints,
     ) {
-        $this->authEndpoints = $authEndpoints;
-        $this->registerEndpoints = $registerEndpoints;
-        $this->credentialEndpoints = $credentialEndpoints;
+
     }
     public static function register(RestApiHandler $apiHandler): void
     {
         add_action('rest_api_init', [$apiHandler, 'registerAuthRoutes']);
-        SessionHandler::start();
+        (new SessionHandler())->start();
     }
 
     public function registerAuthRoutes(): void

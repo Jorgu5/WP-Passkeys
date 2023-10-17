@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace WpPasskeys\Tests\Unit\Ceremonies;
 
+use InvalidArgumentException;
 use PHPUnit\Framework\TestCase;
 use Mockery;
 use Brain\Monkey;
@@ -13,7 +14,6 @@ use Webauthn\PublicKeyCredential;
 use Webauthn\PublicKeyCredentialLoader;
 use Webauthn\PublicKeyCredentialRequestOptions;
 use WP_REST_Request;
-use WP_REST_Response;
 use WpPasskeys\AlgorithmManager\AlgorithmManagerInterface;
 use WpPasskeys\Ceremonies\AuthEndpoints;
 use WpPasskeys\Credentials\CredentialHelperInterface;
@@ -45,6 +45,7 @@ class AuthEndpointsTest extends TestCase
         Monkey\setUp();
 
         Mockery::mock('WP_Error');
+        $this->mockRequest = Mockery::mock('WP_REST_Request');
 
         $this->mockLoader = Mockery::mock(PublicKeyCredentialLoader::class);
         $this->mockValidator = Mockery::mock(AuthenticatorAssertionResponseValidator::class);
@@ -71,7 +72,8 @@ class AuthEndpointsTest extends TestCase
                                         'createOptions',
                                         'getPkCredential',
                                         'getAuthenticatorAssertionResponse',
-                                        'validateAuthenticatorAssertionResponse'
+                                        'validateAuthenticatorAssertionResponse',
+                                        'getResponseFromPkCredential'
                                     ])
                                     ->getMock();
 
@@ -131,25 +133,115 @@ class AuthEndpointsTest extends TestCase
         $this->authEndpoints->verifyPublicKeyCredentials($this->mockRequest);
     }
 
-    public function testGetVerifiedResponse()
+    public function testGetVerifiedResponse(): void
     {
         $verifiedResponse = ['status' => 'Verified', 'statusText' => 'Successfully verified the credential.'];
         $this->authEndpoints->verifiedResponse = $verifiedResponse;
         $this->assertEquals($verifiedResponse, $this->authEndpoints->getVerifiedResponse());
     }
 
-    public function testGetAuthenticatorAssertionResponse()
+    public function testGetAuthenticatorAssertionResponse(): void
     {
+        $authEndpointsPartialMock = Mockery::mock(AuthEndpoints::class)->makePartial();
+        $authEndpointsPartialMock->shouldReceive('getResponseFromPkCredential')
+                                 ->andReturn(null);  // Return null to trigger the exception.
         $publicKeyCredentialMock = $this->createMock(PublicKeyCredential::class);
-        $authenticatorAssertionResponseMock = $this->createMock(AuthenticatorAssertionResponse::class);
-
-        $publicKeyCredentialMock->response = $authenticatorAssertionResponseMock;
-
-        $response = $this->authEndpoints->getAuthenticatorAssertionResponse($publicKeyCredentialMock);
-        $this->assertInstanceOf(AuthenticatorAssertionResponse::class, $response);
-
-        $publicKeyCredentialMock->response = new stdClass();
         $this->expectException(InvalidArgumentException::class);
-        $this->authEndpoints->getAuthenticatorAssertionResponse($publicKeyCredentialMock);
+        $authEndpointsPartialMock->getAuthenticatorAssertionResponse($publicKeyCredentialMock);
+    }
+
+    public function testGetUserLoginWithData(): void
+    {
+        $this->mockSession->shouldReceive('get')
+                                 ->once()
+                                 ->with('user_data')
+                                 ->andReturn(['user_login' => 'john_doe']);
+
+        $result = $this->authEndpoints->getUserLogin();
+        $this->assertEquals('john_doe', $result);
+    }
+
+    public function testGetUserLoginWithoutUserLoginKey(): void
+    {
+        $this->mockSession->shouldReceive('get')
+                                 ->once()
+                                 ->with('user_data')
+                                 ->andReturn(['some_other_key' => 'some_value']);
+
+        $result = $this->authEndpoints->getUserLogin();
+        $this->assertEquals('', $result);
+    }
+
+    public function testGetUserLoginWithoutArray(): void
+    {
+        $this->mockSession->shouldReceive('get')
+                                 ->once()
+                                 ->with('user_data')
+                                 ->andReturn(null);
+
+        $result = $this->authEndpoints->getUserLogin();
+        $this->assertEquals('', $result);
+    }
+
+    public function testLoginUserWithCookieWithId(): void
+    {
+        $this->mockRequest->shouldReceive('has_param')->andReturn(true);
+        $this->mockRequest->shouldReceive('get_param')->andReturn('some-id');
+
+        $this->mockHelper->shouldReceive('getUserByCredentialId')
+                                   ->once()
+                                   ->with('some-id')
+                                   ->andReturn(123);
+
+        $this->mockUtilities->shouldReceive('setAuthCookie')->once()->with(null, 123);
+        $this->authEndpoints->loginUserWithCookie($this->mockRequest);
+
+        $this->addToAssertionCount(1);
+    }
+
+    public function testLoginUserWithCookieWithoutId(): void
+    {
+        $this->mockRequest->shouldReceive('has_param')->andReturn(false);
+        $this->mockRequest->shouldReceive('get_param')->andReturn('some-id');
+
+        $this->mockHelper->shouldReceive('getUserByCredentialId')
+                         ->never();
+
+        $this->mockSession->shouldReceive('get')->once()->with('user_data')->andReturn(['user_login' => 'john_doe']);
+
+        $this->mockUtilities->shouldReceive('setAuthCookie')->once();
+        $this->authEndpoints->loginUserWithCookie($this->mockRequest);
+
+        $this->addToAssertionCount(1);
+    }
+
+    public function testEmptyRawId(): void
+    {
+        $this->mockRequest->shouldReceive('get_param')->with('rawId')->andReturn('');
+
+        $this->expectException('InvalidArgumentException');
+        $this->expectExceptionMessage('Raw ID is empty');
+
+        $this->authEndpoints->getRawId($this->mockRequest);
+    }
+
+    public function testNumberRawId(): void
+    {
+        $this->mockRequest->shouldReceive('get_param')->with('rawId')->andReturn(123);
+
+        $this->expectException('InvalidArgumentException');
+        $this->expectExceptionMessage('Raw ID must be a string');
+
+        $this->authEndpoints->getRawId($this->mockRequest);
+    }
+
+    public function getRawId(): void
+    {
+        $this->mockRequest->shouldReceive('get_param')->with('rawId')->andReturn('adh108hd1d');
+
+        $this->expectException('InvalidArgumentException');
+        $this->expectExceptionMessage('Raw ID must be a string');
+
+        $this->authEndpoints->getRawId($this->mockRequest);
     }
 }

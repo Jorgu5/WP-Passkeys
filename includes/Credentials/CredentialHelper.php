@@ -25,6 +25,13 @@ use WpPasskeys\Utilities;
 
 class CredentialHelper implements CredentialHelperInterface, PublicKeyCredentialSourceRepository
 {
+    public readonly SessionHandlerInterface $sessionHandler;
+    public function __construct(
+        SessionHandlerInterface $sessionHandler
+    ) {
+        $this->sessionHandler = $sessionHandler;
+    }
+
     public readonly PublicKeyCredentialCreationOptions $publicKeyCredentialCreationOptions;
 
     public function findOneByCredentialId(string $publicKeyCredentialId): ?PublicKeyCredentialSource
@@ -116,8 +123,8 @@ class CredentialHelper implements CredentialHelperInterface, PublicKeyCredential
     public function saveSessionCredentialOptions(
         PublicKeyCredentialCreationOptions $publicKeyCredentialCreationOptions
     ): void {
-        SessionHandler::start();
-        SessionHandler::set(
+        $this->sessionHandler->start();
+        $this->sessionHandler->set(
             'webauthn_credential_options',
             json_encode($publicKeyCredentialCreationOptions, JSON_THROW_ON_ERROR)
         );
@@ -128,9 +135,9 @@ class CredentialHelper implements CredentialHelperInterface, PublicKeyCredential
      */
     public function getSessionCredentialOptions(): ?PublicKeyCredentialCreationOptions
     {
-        if (SessionHandler::has('webauthn_credential_options')) {
+        if ($this->sessionHandler->has('webauthn_credential_options')) {
             return PublicKeyCredentialCreationOptions::createFromString(
-                SessionHandler::get('webauthn_credential_options')
+                $this->sessionHandler->get('webauthn_credential_options')
             );
         }
         return null;
@@ -231,5 +238,16 @@ class CredentialHelper implements CredentialHelperInterface, PublicKeyCredential
     {
         $this->createUserWithPkCredentialId($publicKeyCredentialSource->publicKeyCredentialId);
         $this->saveCredentialSource($publicKeyCredentialSource);
+    }
+
+    public function getUserLogin(): string
+    {
+        $userData = $this->sessionHandler->get('user_data');
+        $userLogin = '';
+        if (is_array($userData) && isset($userData['user_login'])) {
+            $userLogin = $userData['user_login'];
+        }
+
+        return (string)$userLogin;
     }
 }

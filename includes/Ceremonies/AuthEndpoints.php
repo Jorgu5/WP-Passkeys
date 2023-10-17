@@ -15,6 +15,7 @@ use Throwable;
 use Webauthn\AuthenticationExtensions\ExtensionOutputCheckerHandler;
 use Webauthn\AuthenticatorAssertionResponse;
 use Webauthn\AuthenticatorAssertionResponseValidator;
+use Webauthn\AuthenticatorResponse;
 use Webauthn\Exception\InvalidDataException;
 use Webauthn\PublicKeyCredential;
 use Webauthn\PublicKeyCredentialLoader;
@@ -28,48 +29,28 @@ use WpPasskeys\Credentials\CredentialHelperInterface;
 use WpPasskeys\Credentials\SessionHandlerInterface;
 use WpPasskeys\Exceptions\CredentialException;
 use WpPasskeys\Exceptions\RandomException;
-use WpPasskeys\Interfaces\WebAuthnInterface;
 use WpPasskeys\UtilitiesInterface;
 
-class AuthEndpoints implements WebAuthnInterface
+class AuthEndpoints implements AuthEndpointsInterface
 {
-    public readonly PublicKeyCredentialLoader $publicKeyCredentialLoader;
-    public readonly AuthenticatorAssertionResponseValidator $authenticatorAssertionResponseValidator;
-
     public const SESSION_KEY = 'pk_credential_request_options';
     private const CHALLENGE_LENGTH = 32;
-
-    public readonly CredentialHelperInterface $credentialHelper;
-    public readonly AlgorithmManagerInterface $algorithmManager;
-    public readonly UtilitiesInterface $utilities;
-    public readonly SessionHandlerInterface $sessionHandler;
     /**
      * @var array <array-key, mixed>
      */
     public array $verifiedResponse;
 
     public function __construct(
-        PublicKeyCredentialLoader $publicKeyCredentialLoader,
-        AuthenticatorAssertionResponseValidator $authenticatorAssertionResponseValidator,
-        CredentialHelperInterface $credentialHelper,
-        AlgorithmManagerInterface $algorithmManager,
-        UtilitiesInterface $utilities,
-        SessionHandlerInterface $sessionHandler
+        public readonly PublicKeyCredentialLoader $publicKeyCredentialLoader,
+        public readonly AuthenticatorAssertionResponseValidator $authenticatorAssertionResponseValidator,
+        public readonly CredentialHelperInterface $credentialHelper,
+        public readonly AlgorithmManagerInterface $algorithmManager,
+        public readonly UtilitiesInterface $utilities,
+        public readonly SessionHandlerInterface $sessionHandler
     ) {
-        $this->publicKeyCredentialLoader = $publicKeyCredentialLoader;
-        $this->authenticatorAssertionResponseValidator = $authenticatorAssertionResponseValidator;
-        $this->credentialHelper = $credentialHelper;
-        $this->algorithmManager = $algorithmManager;
-        $this->utilities = $utilities;
-        $this->sessionHandler = $sessionHandler;
         $this->verifiedResponse = [];
     }
 
-    /**
-     * @param WP_REST_Request $request *
-     *
-     * @throws Exception
-     */
     public function createPublicKeyCredentialOptions(WP_REST_Request $request): WP_REST_Response
     {
         $publicKeyCredentialRequestOptions = $this->createOptions();
@@ -81,11 +62,6 @@ class AuthEndpoints implements WebAuthnInterface
         return new WP_REST_Response($publicKeyCredentialRequestOptions, 200);
     }
 
-    /**
-     *
-     * @param WP_REST_Request<array<array-key, mixed>> $request
-     * @return WP_REST_Response|WP_Error The REST response or error.
-     */
     public function verifyPublicKeyCredentials(WP_REST_Request $request): WP_REST_Response|WP_Error
     {
         try {
@@ -116,10 +92,6 @@ class AuthEndpoints implements WebAuthnInterface
         return $response;
     }
 
-    /**
-     * @return array<array-key, mixed>
-     *
-     */
     public function getVerifiedResponse(): array
     {
         return $this->verifiedResponse;
@@ -128,7 +100,7 @@ class AuthEndpoints implements WebAuthnInterface
     public function getAuthenticatorAssertionResponse(
         PublicKeyCredential $pkCredential
     ): AuthenticatorAssertionResponse {
-        $authenticatorAssertionResponse = $pkCredential->response;
+        $authenticatorAssertionResponse = $this->getResponseFromPkCredential($pkCredential);
         if (!($authenticatorAssertionResponse instanceof AuthenticatorAssertionResponse)) {
             throw new \InvalidArgumentException('AuthenticatorAssertionResponse expected');
         }
@@ -136,21 +108,16 @@ class AuthEndpoints implements WebAuthnInterface
         return $authenticatorAssertionResponse;
     }
 
-    /**
-     * @param WP_REST_Request<array<array-key, mixed>> $request
-     * @throws Throwable
-     */
+    public function getResponseFromPkCredential(PublicKeyCredential $pkCredential)
+    {
+        return $pkCredential->response;
+    }
+
     public function validateAuthenticatorAssertionResponse(
         AuthenticatorAssertionResponse $authenticatorAssertionResponse,
         WP_REST_Request $request
     ): void {
-        $this->authenticatorAssertionResponseValidator::create(
-            $this->credentialHelper,
-            null,
-            ExtensionOutputCheckerHandler::create(),
-            $this->algorithmManager->init(),
-            null,
-        )->check(
+        $this->createAuthenticatorAssertionResponse()->check(
             $this->getRawId($request),
             $authenticatorAssertionResponse,
             $this->sessionHandler->get(self::SESSION_KEY),
@@ -160,37 +127,31 @@ class AuthEndpoints implements WebAuthnInterface
         );
     }
 
-    public function getUserLogin(): string
+    public function createAuthenticatorAssertionResponse(): AuthenticatorAssertionResponseValidator
     {
-        $userData = $this->sessionHandler->get('user_data');
-        $userLogin = '';
-        if (is_array($userData) && isset($userData['user_login'])) {
-            $userLogin = $userData['user_login'];
-        }
-
-        return (string)$userLogin;
+        return $this->authenticatorAssertionResponseValidator::create(
+            $this->credentialHelper,
+            null,
+            ExtensionOutputCheckerHandler::create(),
+            $this->algorithmManager->init(),
+            null,
+        );
     }
 
-    /**
-     * @throws InvalidDataException
-     * @throws Throwable
-     */
     public function getPkCredential(WP_REST_Request $request): PublicKeyCredential
     {
         $data = $request->get_body();
         return $this->publicKeyCredentialLoader->load($data);
     }
 
-    /**
-     * @throws CredentialException
-     */
     public function loginUserWithCookie(WP_REST_Request $request): void
     {
         if ($request->has_param('id')) {
             $userId = $this->credentialHelper->getUserByCredentialId($request->get_param('id'));
             $this->utilities->setAuthCookie(null, $userId);
         } else {
-            $this->utilities->setAuthCookie($this->getUserLogin());
+            $userLogin = $this->credentialHelper->getUserLogin();
+            $this->utilities->setAuthCookie($userLogin);
         }
     }
 
@@ -201,14 +162,11 @@ class AuthEndpoints implements WebAuthnInterface
             throw new InvalidArgumentException('Raw ID must be a string');
         }
         if (empty($rawId)) {
-            throw new InvalidArgument('Raw ID is empty');
+            throw new InvalidArgumentException('Raw ID is empty');
         }
         return $rawId;
     }
 
-    /**
-     * @throws RandomException
-     */
     public function createOptions(): PublicKeyCredentialRequestOptions
     {
         try {
@@ -218,9 +176,6 @@ class AuthEndpoints implements WebAuthnInterface
         }
     }
 
-    /**
-     * @throws Exception
-     */
     public function getChallenge(): string
     {
         return random_bytes(self::CHALLENGE_LENGTH);
