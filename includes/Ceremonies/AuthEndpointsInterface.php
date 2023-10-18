@@ -40,7 +40,7 @@ interface AuthEndpointsInterface
 
     public function getAuthenticatorAssertionResponse(PublicKeyCredential $pkCredential): AuthenticatorAssertionResponse;
 
-    public function getResponseFromPkCredential(PublicKeyCredential $pkCredential);
+    public function getPkCredentialResponse(PublicKeyCredential $pkCredential);
 
     /**
      * @param WP_REST_Request<array<array-key, mixed>> $request
@@ -70,7 +70,7 @@ interface AuthEndpointsInterface
     /**
      * @throws RandomException
      */
-    public function createOptions(): PublicKeyCredentialRequestOptions;
+    public function requestOptions(): PublicKeyCredentialRequestOptions | WP_Error;
 
     /**
      * @throws Exception

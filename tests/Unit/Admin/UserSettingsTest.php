@@ -8,8 +8,8 @@ use Brain\Monkey\Functions;
 use WpPasskeys\Admin\UserSettings;
 use WpPasskeys\Tests\TestCase;
 
-class UserSettingsTest extends TestCase {
-
+class UserSettingsTest extends TestCase
+{
     public function testRegister(): void
     {
         Functions\expect('add_action')
@@ -59,5 +59,3 @@ class UserSettingsTest extends TestCase {
         $this->assertStringContainsString('Create passkeys', $output);
     }
 }
-
-

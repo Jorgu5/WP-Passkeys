@@ -1,41 +1,74 @@
 <?php
 
-declare(strict_types=1);
-
 namespace WpPasskeys\Tests\Unit\AlgorithmManager;
 
-use PHPUnit\Framework\TestCase;
+use Cose\Algorithm\Manager;
+use InvalidArgumentException;
+use Mockery;
+use Mockery\Adapter\Phpunit\MockeryPHPUnitIntegration;
 use WpPasskeys\AlgorithmManager\AlgorithmManager;
+use PHPUnit\Framework\TestCase;
 
 class AlgorithmManagerTest extends TestCase
 {
-    protected \PHPUnit\Framework\MockObject\MockObject|AlgorithmManager $algorithmManager;
+    use MockeryPHPUnitIntegration;
+
+    private $mockedManager;
 
     protected function setUp(): void
     {
-        $this->algorithmManager = $this->getMockBuilder(AlgorithmManager::class)
-                                       ->onlyMethods(['has'])
-                                       ->getMock();
+        parent::setUp();
+        $this->mockedManager = Mockery::mock(AlgorithmManager::class)->makePartial();
     }
 
-    public function testHasValidAlgorithm(): void
+    public function testGetAlgorithmIdentifiers(): void
     {
-        $this->algorithmManager->expects($this->once())
-                               ->method('has')
-                               ->with(-7)  // ES256 identifier
-                               ->willReturn(true);
+        $this->mockedManager->shouldReceive('getAlgorithmIdentifiers')
+                            ->once()
+                            ->andReturn([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]);
 
-        $this->assertTrue($this->algorithmManager->has(-7));
+        $result = $this->mockedManager->getAlgorithmIdentifiers();
+        $this->assertIsArray($result);
+        $this->assertCount(13, $result);
     }
 
-    public function testHasInvalidAlgorithm(): void
+    public function testGet(): void
     {
-        $this->algorithmManager->expects($this->once())
-                               ->method('has')
-                               ->with(9999)  // Invalid identifier
-                               ->willReturn(false);
+        $mockAlgorithm = Mockery::mock('Cose\Algorithm\Algorithm'); // Mock the algorithm object
+        $identifier = -7; // For ES256
+        $this->mockedManager->shouldReceive('get')
+                            ->with($identifier)
+                            ->once()
+                            ->andReturn($mockAlgorithm);
 
-        $this->assertFalse($this->algorithmManager->has(9999));
+        $mockAlgorithm->shouldReceive('identifier')
+                            ->once()
+                            ->andReturn($identifier);
+
+        $result = $this->mockedManager->get($identifier);
+        $this->assertEquals($identifier, $result::identifier());
     }
 
+    public function testHas(): void
+    {
+        $identifier = -7; // For ES256
+        $this->mockedManager->shouldReceive('has')
+                            ->with($identifier)
+                            ->once()
+                            ->andReturnTrue();
+
+        $result = $this->mockedManager->has($identifier);
+        $this->assertTrue($result);
+    }
+
+    public function testGetThrowsExceptionForInvalidIdentifier(): void
+    {
+        $this->mockedManager->shouldReceive('get')
+                            ->with(-999)
+                            ->once()
+                            ->andThrow(InvalidArgumentException::class);
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->mockedManager->get(-999); // An unsupported identifier
+    }
 }

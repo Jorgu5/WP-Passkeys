@@ -12,8 +12,7 @@ class PublicKeyCredentialParameters
     public function __construct(
         AlgorithmManager $algorithmManager,
         PublicKeyCredentialParametersFactory $publicKeyCredentialParametersFactory
-    )
-    {
+    ) {
         $this->algorithmManager = $algorithmManager;
         $this->publicKeyCredentialParametersFactory = $publicKeyCredentialParametersFactory;
     }

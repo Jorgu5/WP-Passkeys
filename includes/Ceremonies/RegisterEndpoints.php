@@ -13,16 +13,14 @@ declare(strict_types=1);
 namespace WpPasskeys\Ceremonies;
 
 use Exception;
+use InvalidArgumentException;
 use JsonException;
-use RuntimeException;
 use Throwable;
-use Webauthn\AttestationStatement\AppleAttestationStatementSupport;
 use Webauthn\AttestationStatement\AttestationStatementSupportManager;
-use Webauthn\AttestationStatement\NoneAttestationStatementSupport;
 use Webauthn\AuthenticationExtensions\ExtensionOutputCheckerHandler;
 use Webauthn\AuthenticatorAttestationResponse;
+use Webauthn\AuthenticatorResponse;
 use Webauthn\AuthenticatorSelectionCriteria;
-use Webauthn\Exception\InvalidDataException;
 use Webauthn\PublicKeyCredential;
 use Webauthn\PublicKeyCredentialCreationOptions;
 use Webauthn\PublicKeyCredentialLoader;
@@ -38,7 +36,6 @@ use WpPasskeys\UtilitiesInterface;
 class RegisterEndpoints implements RegisterEndpointsInterface
 {
     private array $verifiedResponse;
-    private PublicKeyCredentialCreationOptions $publicKeyCredentialCreationOptions;
 
     public function __construct(
         public readonly CredentialHelperInterface $credentialHelper,
@@ -51,36 +48,17 @@ class RegisterEndpoints implements RegisterEndpointsInterface
     ) {
     }
 
-    public function createPublicKeyCredentialOptions(WP_REST_Request $request): WP_REST_Response
+    /**
+     * @throws Exception
+     */
+    public function createPublicKeyCredentialOptions(): WP_Error|WP_REST_Response
     {
-        try {
             $userLogin = $this->credentialHelper->getUserLogin();
-            $this->publicKeyCredentialCreationOptions = PublicKeyCredentialCreationOptions::create(
-                $this->credentialEntity->createRpEntity(),
-                $this->credentialEntity->createUserEntity($userLogin),
-                $this->getChallenge(),
-                $this->getPkParameters(),
-            );
-
-            $this->publicKeyCredentialCreationOptions->timeout = $this->getTimeout();
-            $this->publicKeyCredentialCreationOptions->authenticatorSelection = AuthenticatorSelectionCriteria::create(
-                AuthenticatorSelectionCriteria::AUTHENTICATOR_ATTACHMENT_PLATFORM,
-                AuthenticatorSelectionCriteria::USER_VERIFICATION_REQUIREMENT_REQUIRED,
-                AuthenticatorSelectionCriteria::RESIDENT_KEY_REQUIREMENT_REQUIRED,
-                true
-            );
-
-            $this->publicKeyCredentialCreationOptions->attestation =
-                PublicKeyCredentialCreationOptions::ATTESTATION_CONVEYANCE_PREFERENCE_NONE;
-
+            $publicKeyCredentialCreationOptions = $this->creationOptions($userLogin);
             $this->credentialHelper->saveSessionCredentialOptions(
-                $this->publicKeyCredentialCreationOptions
+                $publicKeyCredentialCreationOptions
             );
-
-            return new WP_REST_Response($this->publicKeyCredentialCreationOptions, 200);
-        } catch (Exception $e) {
-            throw new ($e->getMessage());
-        }
+            return new WP_REST_Response($publicKeyCredentialCreationOptions, 200);
     }
 
     public function verifyPublicKeyCredentials(
@@ -152,9 +130,9 @@ class RegisterEndpoints implements RegisterEndpointsInterface
     public function getAuthenticatorAttestationResponse(
         PublicKeyCredential $pkCredential
     ): AuthenticatorAttestationResponse {
-        $authenticatorAttestationResponse = $pkCredential->response;
+        $authenticatorAttestationResponse = $this->getPkCredentialResponse($pkCredential);
         if (! $authenticatorAttestationResponse instanceof AuthenticatorAttestationResponse) {
-            wp_redirect(wp_login_url());
+            throw new InvalidArgumentException("Invalid attestation response");
         }
         return $authenticatorAttestationResponse;
     }
@@ -167,5 +145,40 @@ class RegisterEndpoints implements RegisterEndpointsInterface
     public function getTimeout(): int
     {
         return (int)get_option('wppk_passkeys_timeout', 30000);
+    }
+
+    public function getPkCredentialResponse(PublicKeyCredential $pkCredential)
+    {
+        return $pkCredential->response;
+    }
+
+    /**
+     * @throws Exception
+     */
+    public function creationOptions(string $userLogin): PublicKeyCredentialCreationOptions | WP_Error
+    {
+        try {
+            $publicKeyCredentialCreationOptions = PublicKeyCredentialCreationOptions::create(
+                $this->credentialEntity->createRpEntity(),
+                $this->credentialEntity->createUserEntity($userLogin),
+                $this->getChallenge(),
+                $this->getPkParameters(),
+            );
+
+            $publicKeyCredentialCreationOptions->timeout = $this->getTimeout();
+            $publicKeyCredentialCreationOptions->authenticatorSelection = AuthenticatorSelectionCriteria::create(
+                AuthenticatorSelectionCriteria::AUTHENTICATOR_ATTACHMENT_PLATFORM,
+                AuthenticatorSelectionCriteria::USER_VERIFICATION_REQUIREMENT_REQUIRED,
+                AuthenticatorSelectionCriteria::RESIDENT_KEY_REQUIREMENT_REQUIRED,
+                true
+            );
+
+            $publicKeyCredentialCreationOptions->attestation =
+                PublicKeyCredentialCreationOptions::ATTESTATION_CONVEYANCE_PREFERENCE_NONE;
+
+            return $publicKeyCredentialCreationOptions;
+        } catch (Exception $e) {
+            return new WP_Error('server', $e->getMessage(), $e->getTrace());
+        }
     }
 }

@@ -22,12 +22,10 @@ interface RegisterEndpointsInterface
     /**
      * Creates the public key credential creation options.
      *
-     * @param WP_REST_Request $request the REST request object.
-     *
-     * @return WP_REST_Response A REST response object with the result.
+     * @return WP_Error|WP_REST_Response A REST response object with the result.
      * @throws RuntimeException If an error occurs during the process.
      */
-    public function createPublicKeyCredentialOptions(WP_REST_Request $request): WP_REST_Response;
+    public function createPublicKeyCredentialOptions(): WP_Error|WP_REST_Response;
 
     /**
      * Handles the creation response.
@@ -55,7 +53,14 @@ interface RegisterEndpointsInterface
      */
     public function getPkCredential(WP_REST_Request $request): PublicKeyCredential;
 
-    public function getAuthenticatorAttestationResponse(PublicKeyCredential $pkCredential): AuthenticatorAttestationResponse;
+    public function getAuthenticatorAttestationResponse(
+        PublicKeyCredential $pkCredential
+    ): AuthenticatorAttestationResponse;
 
     public function getRedirectUrl(): string;
+
+    public function getPkCredentialResponse(PublicKeyCredential $pkCredential);
+
+    public function creationOptions(string $userLogin): PublicKeyCredentialCreationOptions | WP_Error;
+
 }

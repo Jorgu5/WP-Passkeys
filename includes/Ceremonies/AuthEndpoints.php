@@ -6,6 +6,8 @@
  * @package WpPassKeys
  */
 
+declare(strict_types=1);
+
 namespace WpPasskeys\Ceremonies;
 
 use Exception;
@@ -27,6 +29,7 @@ use WpPasskeys\Credentials\CredentialHelperInterface;
 use WpPasskeys\Credentials\SessionHandlerInterface;
 use WpPasskeys\Exceptions\CredentialException;
 use WpPasskeys\Exceptions\RandomException;
+use WpPasskeys\Utilities;
 use WpPasskeys\UtilitiesInterface;
 
 class AuthEndpoints implements AuthEndpointsInterface
@@ -51,11 +54,7 @@ class AuthEndpoints implements AuthEndpointsInterface
 
     public function createPublicKeyCredentialOptions(WP_REST_Request $request): WP_REST_Response
     {
-        $publicKeyCredentialRequestOptions = $this->createOptions();
-        $publicKeyCredentialRequestOptions->allowCredentials = []; // ... $this->getAllowedCredentials()
-        $publicKeyCredentialRequestOptions->userVerification =
-            $publicKeyCredentialRequestOptions::USER_VERIFICATION_REQUIREMENT_REQUIRED;
-        $publicKeyCredentialRequestOptions->rpId = $this->utilities->getHostname();
+        $publicKeyCredentialRequestOptions = $this->requestOptions();
         $this->sessionHandler->set(self::SESSION_KEY, $publicKeyCredentialRequestOptions);
         return new WP_REST_Response($publicKeyCredentialRequestOptions, 200);
     }
@@ -98,7 +97,7 @@ class AuthEndpoints implements AuthEndpointsInterface
     public function getAuthenticatorAssertionResponse(
         PublicKeyCredential $pkCredential
     ): AuthenticatorAssertionResponse {
-        $authenticatorAssertionResponse = $this->getResponseFromPkCredential($pkCredential);
+        $authenticatorAssertionResponse = $this->getPkCredentialResponse($pkCredential);
         if (!($authenticatorAssertionResponse instanceof AuthenticatorAssertionResponse)) {
             throw new \InvalidArgumentException('AuthenticatorAssertionResponse expected');
         }
@@ -106,7 +105,7 @@ class AuthEndpoints implements AuthEndpointsInterface
         return $authenticatorAssertionResponse;
     }
 
-    public function getResponseFromPkCredential(PublicKeyCredential $pkCredential)
+    public function getPkCredentialResponse(PublicKeyCredential $pkCredential)
     {
         return $pkCredential->response;
     }
@@ -119,7 +118,7 @@ class AuthEndpoints implements AuthEndpointsInterface
             $this->getRawId($request),
             $authenticatorAssertionResponse,
             $this->sessionHandler->get(self::SESSION_KEY),
-            $this->utilities->getHostname(),
+            Utilities::getHostname(),
             $authenticatorAssertionResponse->userHandle,
             ['localhost']
         );
@@ -165,12 +164,17 @@ class AuthEndpoints implements AuthEndpointsInterface
         return $rawId;
     }
 
-    public function createOptions(): PublicKeyCredentialRequestOptions
+    public function requestOptions(): PublicKeyCredentialRequestOptions | WP_Error
     {
         try {
-            return PublicKeyCredentialRequestOptions::create($this->getChallenge());
+            $publicKeyCredentialRequestOptions = PublicKeyCredentialRequestOptions::create($this->getChallenge());
+            $publicKeyCredentialRequestOptions->allowCredentials = [];
+            $publicKeyCredentialRequestOptions->userVerification =
+                $publicKeyCredentialRequestOptions::USER_VERIFICATION_REQUIREMENT_REQUIRED;
+            $publicKeyCredentialRequestOptions->rpId = Utilities::getHostname();
+            return $publicKeyCredentialRequestOptions;
         } catch (Exception $e) {
-            throw new RandomException($e->getMessage(), 500);
+            return new WP_Error('server', $e->getMessage(), $e->getTrace());
         }
     }
 
