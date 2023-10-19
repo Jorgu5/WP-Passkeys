@@ -32,7 +32,7 @@ class CredentialEntity implements CredentialEntityInterface
      *
      * @return string The binary ID.
      */
-    private function generateBinaryId(): string
+    public function generateBinaryId(): string
     {
         $encodedValue = '';
         $uuid = wp_generate_uuid4();

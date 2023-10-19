@@ -1,77 +1,75 @@
 <?php
 
-use WpPasskeys\Credentials\CredentialEntity;
-use Webauthn\PublicKeyCredentialRpEntity;
-use Webauthn\PublicKeyCredentialUserEntity;
+namespace WpPasskeys\Tests\Unit\Credentials;
 use Mockery;
+use WpPasskeys\Credentials\CredentialEntity;
 use PHPUnit\Framework\TestCase;
+use Brain\Monkey;
+use Brain\Monkey\Functions;
 
 class CredentialEntityTest extends TestCase
 {
-    public function tearDown(): void
+    private CredentialEntity $credentialEntity;
+
+    protected function setUp(): void
     {
-        Mockery::close();
+        parent::setUp();
+        Monkey\setUp();
+        $this->credentialEntity = new CredentialEntity();
     }
 
-    public function testCreateRpEntity()
+    protected function tearDown(): void
     {
-        // Arrange
-        $credentialEntity = new CredentialEntity();
+        Mockery::close();
+        Monkey\tearDown();
+        parent::tearDown();
+    }
+
+    public function testCreateRpEntity(): void
+    {
         $blogName = 'My Blog';
         $hostname = 'http://localhost';
 
         Mockery::mock('alias:WpPasskeys\Utilities')
                ->shouldReceive('getHostname')
+               ->once()
                ->andReturn($hostname);
 
-        Mockery::mock('overload:' . get_bloginfo::class)
-               ->shouldReceive('name')
-               ->andReturn($blogName);
+        Functions\when('get_bloginfo')->justReturn($blogName);
 
-        // Act
-        $result = $credentialEntity->createRpEntity();
+        $result = $this->credentialEntity->createRpEntity();
 
-        // Assert
-        $this->assertInstanceOf(PublicKeyCredentialRpEntity::class, $result);
         $this->assertEquals($blogName, $result->getName());
         $this->assertEquals($hostname, $result->getId());
     }
 
-    public function testCreateUserEntity()
+    public function testCreateUserEntity(): void
     {
-        // Arrange
-        $credentialEntity = new CredentialEntity();
         $userLogin = 'john';
 
-        // Act
-        $result = $credentialEntity->createUserEntity($userLogin);
+        $uuid = '550e8400-e29b-41d4-a716-446655440000';
 
-        // Assert
-        $this->assertInstanceOf(PublicKeyCredentialUserEntity::class, $result);
+        Functions\when('wp_generate_uuid4')->justReturn($uuid);
+
+        $result = $this->credentialEntity->createUserEntity($userLogin);
+
         $this->assertEquals($userLogin, $result->getName());
         $this->assertEquals($userLogin, $result->getDisplayName());
     }
 
-    public function testGenerateBinaryId()
+    public function testGenerateBinaryId(): void
     {
-        // Arrange
-        $credentialEntity = new CredentialEntity();
+        $uuid = '550e8400-e29b-41d4-a716-446655440000';
+        $strippedUuid = str_replace('-', '', $uuid);
+        $binaryUuid = hex2bin($strippedUuid);
+        $encodedValue = base64_encode($binaryUuid);
 
-        // Since generateBinaryId is private, we'll use Reflection to test it
-        $reflection = new \ReflectionClass($credentialEntity);
-        $method = $reflection->getMethod('generateBinaryId');
-        $method->setAccessible(true);
+        Functions\expect('wp_generate_uuid4')
+            ->once()
+            ->andReturn($uuid);
 
-        // Mocking wp_generate_uuid4() function
-        Mockery::mock('overload:' . wp_generate_uuid4::class)
-               ->shouldReceive()
-               ->andReturn('123e4567-e89b-12d3-a456-426614174000');
+        $result = $this->credentialEntity->generateBinaryId();
 
-        // Act
-        $result = $method->invoke($credentialEntity);
-
-        // Assert
-        $this->assertIsString($result);
-        $this->assertNotEmpty($result);
+        $this->assertEquals($encodedValue, $result);
     }
 }

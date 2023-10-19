@@ -49,22 +49,18 @@ class CredentialHelper implements CredentialHelperInterface, PublicKeyCredential
             return null;
         }
 
-        return PublicKeyCredentialSource::createFromArray(
-            json_decode($credentialSource, true, 512, JSON_THROW_ON_ERROR)
-        );
+        $data = json_decode($credentialSource, true, 512, JSON_THROW_ON_ERROR);
+
+
+        return PublicKeyCredentialSource::createFromArray($data);
     }
 
 
     public function findAllForUserEntity(PublicKeyCredentialUserEntity $publicKeyCredentialUserEntity): array
     {
-        $credentialDescriptorsStore = [];
-
         $username = $publicKeyCredentialUserEntity->name;
-
         $credentialSource = $this->getUserPublicKeySources($username);
-
         $publicKeySource = PublicKeyCredentialSource::createFromArray($credentialSource);
-
         $credentialDescriptorsStore[] = $publicKeySource->getPublicKeyCredentialDescriptor();
 
         return $credentialDescriptorsStore;
@@ -153,7 +149,7 @@ class CredentialHelper implements CredentialHelperInterface, PublicKeyCredential
      * @throws CredentialException
      * @throws InvalidDataException
      */
-    private function getUserPublicKeySources(string $username): array
+    protected function getUserPublicKeySources(string $username): array
     {
         $user = get_user_by('login', $username);
 
@@ -190,7 +186,7 @@ class CredentialHelper implements CredentialHelperInterface, PublicKeyCredential
         return $user;
     }
 
-    private function getExistingUserId($username): int | WP_Error
+    protected function getExistingUserId($username): int | WP_Error
     {
         if (!is_user_logged_in()) {
             return new WP_Error(
