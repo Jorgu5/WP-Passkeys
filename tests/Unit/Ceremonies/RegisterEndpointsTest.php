@@ -51,13 +51,6 @@ class RegisterEndpointsTest extends TestCase {
 
     }
 
-    protected function tearDown(): void
-    {
-        Monkey\tearDown();
-        Mockery::close();
-        parent::tearDown();
-    }
-
     public function testCreatePublicKeyCredentialOptions(): void {
         $this->mockHelper->shouldReceive('getUserLogin')
                          ->andReturn('testuser');
@@ -71,7 +64,7 @@ class RegisterEndpointsTest extends TestCase {
     {
         $this->registerEndpoints->shouldReceive('getPkCredentialResponse')
                               ->andReturn(null);
-        $publicKeyCredentialMock = $this->createMock(PublicKeyCredential::class);
+        $publicKeyCredentialMock = Mockery::mock(PublicKeyCredential::class);
         $this->expectException(InvalidArgumentException::class);
         $this->registerEndpoints->getAuthenticatorAttestationResponse($publicKeyCredentialMock);
     }

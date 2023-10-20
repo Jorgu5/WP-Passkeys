@@ -25,11 +25,10 @@ use WpPasskeys\Utilities;
 
 class CredentialHelper implements CredentialHelperInterface, PublicKeyCredentialSourceRepository
 {
-    public readonly SessionHandlerInterface $sessionHandler;
     public function __construct(
-        SessionHandlerInterface $sessionHandler
+        private readonly SessionHandlerInterface $sessionHandler,
+        private readonly UsernameHandler $usernameHandler
     ) {
-        $this->sessionHandler = $sessionHandler;
     }
 
     public readonly PublicKeyCredentialCreationOptions $publicKeyCredentialCreationOptions;
@@ -51,7 +50,6 @@ class CredentialHelper implements CredentialHelperInterface, PublicKeyCredential
 
         $data = json_decode($credentialSource, true, 512, JSON_THROW_ON_ERROR);
 
-
         return PublicKeyCredentialSource::createFromArray($data);
     }
 
@@ -60,8 +58,7 @@ class CredentialHelper implements CredentialHelperInterface, PublicKeyCredential
     {
         $username = $publicKeyCredentialUserEntity->name;
         $credentialSource = $this->getUserPublicKeySources($username);
-        $publicKeySource = PublicKeyCredentialSource::createFromArray($credentialSource);
-        $credentialDescriptorsStore[] = $publicKeySource->getPublicKeyCredentialDescriptor();
+        $credentialDescriptorsStore[] = $credentialSource->getPublicKeyCredentialDescriptor();
 
         return $credentialDescriptorsStore;
     }
@@ -90,7 +87,7 @@ class CredentialHelper implements CredentialHelperInterface, PublicKeyCredential
 
     public function createUserWithPkCredentialId(string $publicKeyCredentialId): void
     {
-        $userData = UsernameHandler::userData();
+        $userData = $this->usernameHandler->getUserData();
         $userData['meta_input'] = [
             'pk_credential_id' => Utilities::safeEncode($publicKeyCredentialId)
         ];
@@ -149,7 +146,7 @@ class CredentialHelper implements CredentialHelperInterface, PublicKeyCredential
      * @throws CredentialException
      * @throws InvalidDataException
      */
-    protected function getUserPublicKeySources(string $username): array
+    public function getUserPublicKeySources(string $username): ?PublicKeyCredentialSource
     {
         $user = get_user_by('login', $username);
 
@@ -160,12 +157,10 @@ class CredentialHelper implements CredentialHelperInterface, PublicKeyCredential
         $pkCredentialId = get_user_meta($user->ID, 'pk_credential_id', true);
 
         if (!$pkCredentialId) {
-            throw new CredentialException('No credential ID found for user.');
+            throw new CredentialException('No credentials assigned to this user.');
         }
 
-        $credentialSource = $this->findOneByCredentialId($pkCredentialId);
-
-        return json_decode($credentialSource, true, 512, JSON_THROW_ON_ERROR);
+        return $this->findOneByCredentialId($pkCredentialId);
     }
 
     public function getUserByCredentialId(string $pkCredentialId): int
@@ -180,13 +175,16 @@ class CredentialHelper implements CredentialHelperInterface, PublicKeyCredential
         );
 
         if (!$user) {
-            throw new CredentialException('There is no user with this credential ID.');
+            throw new CredentialException('There is no user with this credential ID');
+        }
+        if (!is_numeric($user)) {
+            throw new CredentialException('Unexpected data type for user');
         }
 
-        return $user;
+        return (int) $user;
     }
 
-    protected function getExistingUserId($username): int | WP_Error
+    public function getExistingUserId($username): int | WP_Error
     {
         if (!is_user_logged_in()) {
             return new WP_Error(

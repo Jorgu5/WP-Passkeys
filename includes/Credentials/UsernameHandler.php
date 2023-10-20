@@ -6,14 +6,15 @@ namespace WpPasskeys\Credentials;
 
 class UsernameHandler
 {
-    public static function userData(): array
+    public function __construct(
+        private readonly SessionHandler $sessionHandler
+    ) {}
+    public function getUserData(): array
     {
         $userData = [];
 
-        $sessionHandler = new SessionHandler();
-
-        if ($sessionHandler->has('user_data')) {
-            $userData = $sessionHandler->get('user_data');
+        if ($this->sessionHandler->has('user_data')) {
+            $userData = $this->sessionHandler->get('user_data');
         }
 
         $userEmail = $userData['user_email'] ?? '';

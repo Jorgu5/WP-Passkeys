@@ -2,7 +2,6 @@
 
 namespace WpPasskeys\Tests\Unit\AlgorithmManager;
 
-use Cose\Algorithm\Manager;
 use InvalidArgumentException;
 use Mockery;
 use Mockery\Adapter\Phpunit\MockeryPHPUnitIntegration;

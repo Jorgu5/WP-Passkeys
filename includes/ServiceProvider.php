@@ -15,6 +15,7 @@ use WpPasskeys\Credentials\CredentialEntity;
 use WpPasskeys\Credentials\CredentialsEndpoints;
 use WpPasskeys\Credentials\CredentialHelper;
 use WpPasskeys\Credentials\SessionHandler;
+use WpPasskeys\Credentials\UsernameHandler;
 use WpPasskeys\RestApi\RestApiHandler;
 use WpPasskeys\AlgorithmManager\AlgorithmManager;
 use WpPasskeys\Ceremonies\PublicKeyCredentialParameters;
@@ -76,7 +77,10 @@ class ServiceProvider extends AbstractServiceProvider
                   ]);
         $container->add(ExtensionOutputCheckerHandler::class, ExtensionOutputCheckerHandler::create());
         $container->add(CredentialHelperInterface::class, CredentialHelper::class)
-                  ->addArgument(SessionHandlerInterface::class);
+                  ->addArguments([
+                      SessionHandlerInterface::class,
+                      UsernameHandler::class,
+                  ]);
         $container->add(PublicKeyCredentialParameters::class)
                   ->addArguments([
                       AlgorithmManagerInterface::class,
