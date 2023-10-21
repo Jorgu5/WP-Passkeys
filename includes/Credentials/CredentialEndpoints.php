@@ -6,8 +6,12 @@ use WP_REST_Request;
 use WP_REST_Response;
 use WpPasskeys\Exceptions\CredentialException;
 
-class CredentialsEndpoints implements CredentialsEndpointsInterface
+class CredentialEndpoints implements CredentialEndpointsInterface
 {
+    public function __construct(
+        public readonly SessionHandlerInterface $sessionHandler
+    ) {}
+
     public function setUserCredentials(WP_REST_Request $request): WP_REST_Response
     {
         $userData = $request->get_params();
@@ -20,7 +24,6 @@ class CredentialsEndpoints implements CredentialsEndpointsInterface
             return new WP_REST_Response('Registering with usernameless method', 200);
         }
 
-        // foreach item in $userData, sanitize and set data in SessionHandler instance
         foreach ($userData as $userKey => $userValue) {
             if ($userKey === 'user_email') {
                 $sanitizedValue = sanitize_email($userValue);
@@ -30,7 +33,7 @@ class CredentialsEndpoints implements CredentialsEndpointsInterface
             $savedData[$userKey] = $sanitizedValue;
         }
 
-        (new SessionHandler())->set('user_data', $savedData);
+        $this->sessionHandler->set('user_data', $savedData);
 
         $savedKeys = implode(', ', array_keys($savedData));
 
@@ -45,30 +48,21 @@ class CredentialsEndpoints implements CredentialsEndpointsInterface
         global $wpdb;
 
         $userId = get_current_user_id();
-
         $pkCredentialId = get_user_meta($userId, 'pk_credential_id', true);
 
-        if (!$pkCredentialId) {
-            throw new CredentialException('No pk_credential_id found for user.');
+        if (empty($pkCredentialId)) {
+            throw new CredentialException('No pk_credential_id found for this user in meta');
         }
 
-        // Remove the pk_credential_id meta input
-        $metaResult = delete_user_meta($userId, 'pk_credential_id');
-
-        if (!$metaResult) {
-            throw new CredentialException('Failed to remove pk_credential_id meta input.');
+        if (!delete_user_meta($userId, 'pk_credential_id')) {
+            throw new CredentialException('Failed to remove pk_credential_id meta input');
         }
 
-        // Remove the PublicKeyCredentialSource from custom table
-        if (
-            $wpdb->delete(
-                'wp_pk_credential_sources',
-                ['pk_credential_id' => $pkCredentialId],
-                ['%s']
-            ) === false
-        ) {
-            update_user_meta($userId, 'pk_credential_id', $pkCredentialId);
-            throw new CredentialException('Failed to remove credential source.');
+        $deletedRows = $wpdb->delete('wp_pk_credential_sources', ['pk_credential_id' => $pkCredentialId], ['%s']);
+
+        if ($deletedRows === false) {
+            update_user_meta($userId, 'pk_credential_id', $pkCredentialId); // backup in case something goes wrong
+            throw new CredentialException('Failed to remove credential source');
         }
 
         return new WP_REST_Response(['success' => true], 200);

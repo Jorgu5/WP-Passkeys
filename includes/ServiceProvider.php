@@ -12,7 +12,7 @@ use Webauthn\PublicKeyCredentialLoader;
 use WpPasskeys\Ceremonies\AuthEndpoints;
 use WpPasskeys\Ceremonies\RegisterEndpoints;
 use WpPasskeys\Credentials\CredentialEntity;
-use WpPasskeys\Credentials\CredentialsEndpoints;
+use WpPasskeys\Credentials\CredentialEndpoints;
 use WpPasskeys\Credentials\CredentialHelper;
 use WpPasskeys\Credentials\SessionHandler;
 use WpPasskeys\Credentials\UsernameHandler;
@@ -23,7 +23,7 @@ use WpPasskeys\Ceremonies\PublicKeyCredentialParametersFactory;
 use WpPasskeys\Credentials\SessionHandlerInterface;
 use WpPasskeys\Credentials\CredentialHelperInterface;
 use WpPasskeys\Credentials\CredentialEntityInterface;
-use WpPasskeys\Credentials\CredentialsEndpointsInterface;
+use WpPasskeys\Credentials\CredentialEndpointsInterface;
 use WpPasskeys\Ceremonies\AuthEndpointsInterface;
 use WpPasskeys\Ceremonies\RegisterEndpointsInterface;
 use WpPasskeys\AlgorithmManager\AlgorithmManagerInterface;
@@ -34,7 +34,7 @@ class ServiceProvider extends AbstractServiceProvider
         RestApiHandler::class,
         AuthEndpointsInterface::class,
         RegisterEndpointsInterface::class,
-        CredentialsEndpointsInterface::class,
+        CredentialEndpointsInterface::class,
         PublicKeyCredentialParameters::class,
         PublicKeyCredentialParametersFactory::class,
         CredentialHelperInterface::class,
@@ -90,7 +90,8 @@ class ServiceProvider extends AbstractServiceProvider
         $container->add(AlgorithmManagerInterface::class, AlgorithmManager::class);
         $container->add(UtilitiesInterface::class, Utilities::class);
         $container->add(CredentialEntityInterface::class, CredentialEntity::class);
-        $container->add(CredentialsEndpointsInterface::class, CredentialsEndpoints::class);
+        $container->add(CredentialEndpointsInterface::class, CredentialEndpoints::class)
+                    ->addArgument(SessionHandlerInterface::class);
         $container->add(PublicKeyCredentialParametersFactory::class, PublicKeyCredentialParametersFactory::class);
 
 
@@ -119,7 +120,7 @@ class ServiceProvider extends AbstractServiceProvider
                   ->addArguments([
                       AuthEndpointsInterface::class,
                       RegisterEndpointsInterface::class,
-                      CredentialsEndpointsInterface::class,
+                      CredentialEndpointsInterface::class,
                   ]);
     }
 }

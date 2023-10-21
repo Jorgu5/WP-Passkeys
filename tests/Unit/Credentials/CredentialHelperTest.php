@@ -3,7 +3,7 @@
 namespace WpPasskeys\Tests\Unit\Credentials;
 
 use Mockery;
-use PHPUnit\Framework\TestCase;
+use WpPasskeys\Tests\TestCase;
 use Webauthn\PublicKeyCredentialDescriptor;
 use Webauthn\PublicKeyCredentialUserEntity;
 use WpPasskeys\Credentials\UsernameHandler;
@@ -12,6 +12,7 @@ use WpPasskeys\Credentials\CredentialHelper;
 use WpPasskeys\Credentials\CredentialHelperInterface;
 use WpPasskeys\Credentials\SessionHandlerInterface;
 use Brain\Monkey\Functions;
+use WpPasskeys\Credentials\SessionHandler;
 
 class CredentialHelperTest extends TestCase
 {
@@ -22,21 +23,19 @@ class CredentialHelperTest extends TestCase
     private $mockCredentialHelper;
     private $mockUsernameHandler;
     private $mockSessionHandler;
-    private $utilitiesAlias;
-    private $dumbUserData;
     private $creationOptionsAlias;
 
     protected function setUp(): void
     {
         parent::setUp();
-        $GLOBALS['wpdb'] = Mockery::mock('overload:wpdb');
+        $GLOBALS['wpdb'] = Mockery::mock('wpdb');
 
         $this->mockUserEntity = Mockery::mock(PublicKeyCredentialUserEntity::class);
         $this->mockDescriptor = Mockery::mock(PublicKeyCredentialDescriptor::class);
         $this->credentialSourceAlias = Mockery::mock('alias:Webauthn\PublicKeyCredentialSource');
         $this->creationOptionsAlias = Mockery::mock('alias:Webauthn\PublicKeyCredentialCreationOptions');
 
-        $this->mockSessionHandler = Mockery::mock(SessionHandlerInterface::class);
+        $this->mockSessionHandler = Mockery::mock(SessionHandler::class, SessionHandlerInterface::class);
         $this->mockUsernameHandler = Mockery::mock(UsernameHandler::class);
 
         $this->mockCredentialHelper = Mockery::mock(CredentialHelper::class, CredentialHelperInterface::class, [
@@ -49,7 +48,7 @@ class CredentialHelperTest extends TestCase
             $this->mockUsernameHandler
         );
 
-        $this->dumbUserData = [
+        $this->dummyUserData = [
             'user_login' => 'dumby',
             'user_email' => 'bumby@dumby.com',
             'display_name' => 'rumby',
@@ -124,7 +123,7 @@ class CredentialHelperTest extends TestCase
     public function testCreateUserWithPkCredentialId(): void
     {
 
-        $this->dumbUserData['meta_input'] = [
+        $this->dummyUserData['meta_input'] = [
             'pk_credential_id' => 'somePkCredentialId',
         ];
 
@@ -135,10 +134,10 @@ class CredentialHelperTest extends TestCase
 
         $this->credentialHelper->createUserWithPkCredentialId('somePkCredentialId');
 
-        $this->assertCount(4, $this->dumbUserData);
+        $this->assertCount(4, $this->dummyUserData);
     }
 
-    public function testSaveCreateUserWithPkCredentialId(): void
+    public function testFailToUpdateUserWithPkCredentialId(): void
     {
         $mockWpError = Mockery::mock('WP_Error')
                               ->shouldReceive('get_error_code')
@@ -149,21 +148,18 @@ class CredentialHelperTest extends TestCase
                     ->once()
                     ->andReturn('something not working');
 
-        $this->mockUsernameHandler->shouldReceive('getUserData')->once()->andReturn($this->dumbUserData);
-
-
+        $this->mockUsernameHandler->shouldReceive('getUserData')->once()->andReturn($this->dummyUserData);
         $this->mockCredentialHelper->shouldAllowMockingProtectedMethods();
         $this->mockCredentialHelper->shouldReceive('getExistingUserId')->once()->andReturn(1);
 
         Functions\when('wp_insert_user')->justReturn($mockWpError);
-        Functions\expect('is_wp_error')
-            ->once()
-            ->andReturn(true);
 
         $this->expectException(CredentialException::class);
 
         $this->mockCredentialHelper->createUserWithPkCredentialId('somePkCredentialId');
     }
+
+
 
     public function testSaveSessionCredentialOptions(): void
     {
@@ -270,21 +266,25 @@ class CredentialHelperTest extends TestCase
 
     public function testGetExistingUserId(): void
     {
+        // Mock global WordPress functions.
         Functions\when('is_user_logged_in')->justReturn(true);
         Functions\when('wp_verify_nonce')->justReturn(true);
 
-        $_POST['wp_passkeys_nonce'] = 'valid_nonce';
-        $result = $this->mockCredentialHelper->getExistingUserId('some_username');
+        $user = new \stdClass();
+        $user->ID = 123;
+        Functions\when('get_user_by')->justReturn($user);
 
-        // expect get_user_by to be called once
-        Functions\expect('get_user_by')->once();
+        $_POST['wp_passkeys_nonce'] = 'valid_nonce';
+
+        $result = $this->credentialHelper->getExistingUserId('some_username');
 
         $this->assertIsInt($result);
+        $this->assertEquals(123, $result);
     }
 
     public function testGetuserLogin(): void
     {
-        $this->mockSessionHandler->shouldReceive('get')->once()->withSomeOfArgs('user_data')->andReturn($this->dumbUserData);
+        $this->mockSessionHandler->shouldReceive('get')->once()->withSomeOfArgs('user_data')->andReturn($this->dummyUserData);
 
         $result = $this->mockCredentialHelper->getUserLogin();
 

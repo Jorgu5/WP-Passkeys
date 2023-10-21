@@ -17,7 +17,6 @@ use WpPasskeys\Credentials\SessionHandlerInterface;
 use WpPasskeys\Tests\TestCase;
 use WpPasskeys\UtilitiesInterface;
 use Brain\Monkey;
-use Brain\Monkey\Functions;
 use Mockery;
 
 class RegisterEndpointsTest extends TestCase {

@@ -8,73 +8,78 @@ class UsernameHandler
 {
     public function __construct(
         private readonly SessionHandler $sessionHandler
-    ) {}
+    ) {
+    }
+
     public function getUserData(): array
     {
-        $userData = [];
-
-        if ($this->sessionHandler->has('user_data')) {
-            $userData = $this->sessionHandler->get('user_data');
+        if (!$this->sessionHandler->has('user_data')) {
+            return [];
         }
 
-        $userEmail = $userData['user_email'] ?? '';
-
-        [$username, $displayName] = (new self())->getDisplayAndUserName($userData);
+        $userData = $this->sessionHandler->get('user_data');
+        [$username, $displayName] = $this->getDisplayAndUserName($userData);
 
         return [
             'user_login' => $username,
-            'user_email' => $userEmail,
+            'user_email' => $userData['user_email'] ?? '',
             'display_name' => $displayName,
         ];
     }
 
-    private function username(string $username, string $email, string $displayName): string
+    public function getUsername(string $username = '', string $email = '', string $displayName = ''): string
     {
-        if (!empty($username) || (!empty($email) && empty($displayName))) {
-            return $username ?: $this->convertEmail($email);
+        $theUsername = '';
+
+        if (!empty($username)) {
+            $theUsername = $username;
+        } elseif (!empty($email)) {
+            $theUsername = $this->extractUsernameFromEmail($email);
+        } elseif (!empty($displayName)) {
+            $theUsername = $this->setUsernameAsDisplayName($displayName);
         }
-        return !empty($email) ? $this->convertEmail($email) : $this->convertDisplayName($displayName);
+
+        return $theUsername;
     }
 
-    private function displayName(string $displayName, string $username, string $email): string
+
+
+    public function getDisplayName(string $displayName, string $username, string $email): string
     {
+        if (empty($username) && empty($email) && empty($displayName)) {
+            return wp_unique_id('user_');
+        }
+
         if (!empty($username) || !empty($displayName)) {
             return $displayName ?: $username;
         }
         return !empty($email) ? explode('@', $email)[0] : $username;
     }
 
-    private function getDisplayAndUserName(array $userData): array
+
+    public function getDisplayAndUserName(array $userData = []): array
     {
-        $username = $userData['user_login'] ?? '';
-        $displayName = $userData['display_name'] ?? '';
-        $email = $userData['user_email'] ?? '';
+        $username = $this->getUsername(
+            $userData['user_login'] ?? '',
+            $userData['user_email'] ?? '',
+            $userData['display_name'] ?? ''
+        );
 
-        // Case 7: No data provided
-        if (empty($userData)) {
-            $username = wp_unique_id('user_');
-            return [$username, $username];
-        }
+        $displayName = $this->getDisplayName(
+            $userData['display_name'] ?? '',
+            $username,
+            $userData['user_email'] ?? ''
+        );
 
-        $username = $this->username($username, $email, $displayName);
-        $displayName = $this->displayName($displayName, $username, $email);
-
-        // Fallback to username if displayName is still empty
-        $displayName = $displayName ?: $username;
-
-        return [$username, $displayName];
+        return [$username ?: wp_unique_id('user_'), $displayName ?: $username];
     }
 
-
-
-    private function convertDisplayName(string $displayName): string
+    public function setUsernameAsDisplayName(string $displayName = ''): string
     {
-        $displayName = str_replace(' ', '', $displayName);
-
-        return strtolower($displayName);
+        return strtolower(str_replace(' ', '', $displayName));
     }
 
-    private function convertEmail(string $email): string
+    public function extractUsernameFromEmail(string $email = ''): string
     {
         return explode('@', $email)[0];
     }

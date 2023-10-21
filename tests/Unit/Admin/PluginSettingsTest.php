@@ -14,6 +14,11 @@ use WpPasskeys\Tests\TestCase;
  */
 class PluginSettingsTest extends TestCase
 {
+    public function setUp(): void
+    {
+        parent::setUp();
+        Functions\stubTranslationFunctions();
+    }
     /**
      * @throws ExpectationArgsRequired
      */

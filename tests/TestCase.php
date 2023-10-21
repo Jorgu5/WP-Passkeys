@@ -7,7 +7,6 @@ use function Brain\Monkey\setUp;
 use function Brain\Monkey\tearDown;
 use Mockery\Adapter\Phpunit\MockeryPHPUnitIntegration;
 use PHPUnit\Framework\TestCase as PHPUnitTestCase;
-use Brain\Monkey\Functions;
 use Brain\Monkey;
 
 class TestCase extends PHPUnitTestCase {
@@ -18,8 +17,7 @@ class TestCase extends PHPUnitTestCase {
     protected function setUp(): void
     {
         parent::setUp();
-        setUp();
-        Functions\stubTranslationFunctions();
+        Monkey\setUp();
 
         Mockery::mock('WP_Error');
         Mockery::mock('WP_REST_Response');
@@ -27,7 +25,7 @@ class TestCase extends PHPUnitTestCase {
 
     protected function tearDown(): void
     {
-        tearDown();
+        Monkey\tearDown();
         Mockery::close();
         parent::tearDown();
     }

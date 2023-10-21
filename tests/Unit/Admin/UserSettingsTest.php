@@ -10,6 +10,12 @@ use WpPasskeys\Tests\TestCase;
 
 class UserSettingsTest extends TestCase
 {
+    public function setUp(): void
+    {
+        parent::setUp();
+        Functions\stubTranslationFunctions();
+    }
+
     public function testRegister(): void
     {
         Functions\expect('add_action')

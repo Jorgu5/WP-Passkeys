@@ -4,14 +4,11 @@ namespace WpPasskeys\Tests\Unit\AlgorithmManager;
 
 use InvalidArgumentException;
 use Mockery;
-use Mockery\Adapter\Phpunit\MockeryPHPUnitIntegration;
 use WpPasskeys\AlgorithmManager\AlgorithmManager;
-use PHPUnit\Framework\TestCase;
+use WpPasskeys\Tests\TestCase;
 
 class AlgorithmManagerTest extends TestCase
 {
-    use MockeryPHPUnitIntegration;
-
     private $mockedManager;
 
     protected function setUp(): void

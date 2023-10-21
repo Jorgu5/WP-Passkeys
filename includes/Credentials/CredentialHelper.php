@@ -88,27 +88,31 @@ class CredentialHelper implements CredentialHelperInterface, PublicKeyCredential
     public function createUserWithPkCredentialId(string $publicKeyCredentialId): void
     {
         $userData = $this->usernameHandler->getUserData();
-        $userData['meta_input'] = [
-            'pk_credential_id' => Utilities::safeEncode($publicKeyCredentialId)
-        ];
+        $encodedPublicKeyCredentialId = Utilities::safeEncode($publicKeyCredentialId);
+        $userData['meta_input'] = ['pk_credential_id' => $encodedPublicKeyCredentialId];
 
-        $addUser = wp_insert_user($userData);
+        $addUser = wp_insert_user($userData); // Add user
 
-        // TODO: Take adding passkeys from the dashboard to a different method.
+        if (!is_wp_error($addUser)) {
+            return;
+        }
+
+        if ($addUser->get_error_code() !== 'existing_user_login') {
+            throw new CredentialException($addUser->get_error_message());
+        }
+
+        $userId = $this->getExistingUserId($userData['user_login']);
+        if (is_wp_error($userId)) {
+            throw new CredentialException($userId->get_error_message());
+        }
+
+        $addUser = wp_insert_user(['ID' => $userId]); // Update user
+
         if (is_wp_error($addUser)) {
-            if ($addUser->get_error_code() === 'existing_user_login') {
-                $userId     = $this->getExistingUserId($userData['user_login']);
-                if (is_wp_error($userId)) {
-                    throw new CredentialException($userId->get_error_message());
-                }
-                $user['ID'] = $userId;
-                $addUser    = wp_insert_user(
-                    $user
-                );
-            }
             throw new CredentialException($addUser->get_error_message());
         }
     }
+
 
     /**
      * @throws \JsonException

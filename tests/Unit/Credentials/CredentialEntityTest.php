@@ -1,10 +1,10 @@
 <?php
 
 namespace WpPasskeys\Tests\Unit\Credentials;
+
 use Mockery;
 use WpPasskeys\Credentials\CredentialEntity;
-use PHPUnit\Framework\TestCase;
-use Brain\Monkey;
+use WpPasskeys\Tests\TestCase;
 use Brain\Monkey\Functions;
 
 class CredentialEntityTest extends TestCase
@@ -14,15 +14,7 @@ class CredentialEntityTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        Monkey\setUp();
         $this->credentialEntity = new CredentialEntity();
-    }
-
-    protected function tearDown(): void
-    {
-        Mockery::close();
-        Monkey\tearDown();
-        parent::tearDown();
     }
 
     public function testCreateRpEntity(): void

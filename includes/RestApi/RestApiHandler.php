@@ -4,7 +4,7 @@ namespace WpPasskeys\RestApi;
 
 use ReflectionClass;
 use ReflectionException;
-use WpPasskeys\Credentials\CredentialsEndpointsInterface;
+use WpPasskeys\Credentials\CredentialEndpointsInterface;
 use WpPasskeys\Credentials\SessionHandler;
 use WpPasskeys\Ceremonies\AuthEndpointsInterface;
 use WpPasskeys\Ceremonies\RegisterEndpointsInterface;
@@ -12,7 +12,7 @@ use WpPasskeys\Ceremonies\RegisterEndpointsInterface;
 /**
  * @property AuthEndpointsInterface $authEndpoints
  * @property RegisterEndpointsInterface $registerEndpoints
- * @property CredentialsEndpointsInterface $credentialEndpoints
+ * @property CredentialEndpointsInterface $credentialEndpoints
  */
 class RestApiHandler extends AbstractApiHandler
 {
@@ -26,7 +26,7 @@ class RestApiHandler extends AbstractApiHandler
     public function __construct(
         private readonly AuthEndpointsInterface $authEndpoints,
         private readonly RegisterEndpointsInterface $registerEndpoints,
-        private readonly CredentialsEndpointsInterface $credentialEndpoints,
+        private readonly CredentialEndpointsInterface $credentialEndpoints,
     ) {
     }
     public static function register(RestApiHandler $apiHandler): void

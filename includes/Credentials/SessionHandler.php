@@ -14,12 +14,12 @@ class SessionHandler implements SessionHandlerInterface
         return $_SESSION[$key] ?? null;
     }
 
-    public function has($key): bool
+    public function has(string $key): bool
     {
         return isset($_SESSION[$key]);
     }
 
-    public function remove($key): void
+    public function remove(string $key): void
     {
         unset($_SESSION[$key]);
     }

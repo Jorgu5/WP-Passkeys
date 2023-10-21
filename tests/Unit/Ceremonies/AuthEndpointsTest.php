@@ -4,7 +4,7 @@ namespace WpPasskeys\Tests\Unit\Ceremonies;
 
 use Exception;
 use InvalidArgumentException;
-use PHPUnit\Framework\TestCase;
+use WpPasskeys\Tests\TestCase;
 use Mockery;
 use Brain\Monkey;
 use Brain\Monkey\Functions;
@@ -73,13 +73,6 @@ class AuthEndpointsTest extends TestCase
         );
     }
 
-    protected function tearDown(): void
-    {
-        Monkey\tearDown();
-        Mockery::close();
-        parent::tearDown();
-    }
-
     /**
      * @throws Exception
      */
@@ -129,42 +122,6 @@ class AuthEndpointsTest extends TestCase
         $this->expectException(InvalidArgumentException::class);
         $authEndpointsPartialMock->getAuthenticatorAssertionResponse($publicKeyCredentialMock);
     }
-
-    /*
-    * TODO: Take it to a different class.
-
-    public function testGetUserLoginWithData(): void
-    {
-        $this->mockSession->shouldReceive('get')
-                                 ->once()
-                                 ->with('user_data')
-                                 ->andReturn(['user_login' => 'john_doe']);
-
-        $result = $this->mockHelper->getUserLogin();
-        $this->assertEquals('john_doe', $result);
-    }
-
-    public function testGetUserLoginWithoutUserLoginKey(): void
-    {
-        $this->mockSession->shouldReceive('get')
-                                 ->once()
-                                 ->with('user_data')
-                                 ->andReturn(['some_other_key' => 'some_value']);
-
-        $result = $this->mockHelper->getUserLogin();
-        $this->assertEquals('', $result);
-    }
-
-    public function testGetUserLoginWithoutArray(): void
-    {
-        $this->mockSession->shouldReceive('get')
-                                 ->once()
-                                 ->with('user_data')
-                                 ->andReturn(null);
-
-        $result = $this->mockHelper->getUserLogin();
-        $this->assertEquals('', $result);
-    }*/
 
     public function testLoginUserWithCookieWithId(): void
     {
