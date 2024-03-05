@@ -7,7 +7,7 @@ use WpPasskeys\Tests\TestCase;
 use Webauthn\PublicKeyCredentialDescriptor;
 use Webauthn\PublicKeyCredentialUserEntity;
 use WpPasskeys\Credentials\UsernameHandler;
-use WpPasskeys\Exceptions\CredentialException;
+use WpPasskeys\Exceptions\InvalidCredentialsException;
 use WpPasskeys\Credentials\CredentialHelper;
 use WpPasskeys\Credentials\CredentialHelperInterface;
 use WpPasskeys\Credentials\SessionHandlerInterface;
@@ -112,7 +112,7 @@ class CredentialHelperTest extends TestCase
         $wpdb->shouldReceive('insert')->once()->andReturn(null);
         $wpdb->insert_id = 0;
 
-        $this->expectException(CredentialException::class);
+        $this->expectException(InvalidCredentialsException::class);
 
         $this->credentialSourceAlias->publicKeyCredentialId = 'non_existing_id';
 
@@ -154,7 +154,7 @@ class CredentialHelperTest extends TestCase
 
         Functions\when('wp_insert_user')->justReturn($mockWpError);
 
-        $this->expectException(CredentialException::class);
+        $this->expectException(InvalidCredentialsException::class);
 
         $this->mockCredentialHelper->createUserWithPkCredentialId('somePkCredentialId');
     }
@@ -185,7 +185,7 @@ class CredentialHelperTest extends TestCase
     public function testFailToGetUserForPublicKeySources(): void
     {
         Functions\when('get_user_by')->justReturn(false);
-        $this->expectException(CredentialException::class);
+        $this->expectException(InvalidCredentialsException::class);
 
         $this->credentialHelper->getUserPublicKeySources('some_username');
     }
@@ -197,7 +197,7 @@ class CredentialHelperTest extends TestCase
 
         Functions\when('get_user_by')->justReturn($mockUser);
         Functions\when('get_user_meta')->justReturn(false);
-        $this->expectException(CredentialException::class);
+        $this->expectException(InvalidCredentialsException::class);
         $this->expectExceptionMessage('No credentials assigned to this user.');
 
         $this->credentialHelper->getUserPublicKeySources('some_username');
@@ -224,7 +224,7 @@ class CredentialHelperTest extends TestCase
         $wpdb->shouldReceive('get_var')->once()->andReturn(null);
         $wpdb->shouldReceive('prepare')->once();
 
-        $this->expectException(CredentialException::class);
+        $this->expectException(InvalidCredentialsException::class);
         $this->expectExceptionMessage('There is no user with this credential ID');
 
         $this->credentialHelper->getUserByCredentialId('some_pk_credential_id');

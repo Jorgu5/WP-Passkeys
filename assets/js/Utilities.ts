@@ -1,40 +1,67 @@
-import {userData} from "./WebauthnTypes";
+import { userData, NotificationStatus } from './WebauthnTypes';
 
 export default class Utilities {
-    public static async setUserData(userData: userData): Promise<void> {
-        try {
-            const response: Response = await fetch(`/wp-json/wp-passkeys/creds/user`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(userData),
-            });
-            if (response.ok) {
-                await response.json();
-            } else {
-                console.error(`Server returned ${response.status}: ${response.statusText}`);
-            }
-        } catch (error) {
-            console.error('There was a problem with the fetch operation:', error);
-        }
-    }
+	public static async setUserData(
+		userData: userData,
+		restUrlEndpoint: string,
+	): Promise<void> {
+		try {
+			const response: Response = await fetch( restUrlEndpoint + '/creds/user', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+				},
+				body: JSON.stringify( userData ),
+			} );
+			if ( response.ok ) {
+				await response.json();
+			} else {
+				console.error(
+					`Server returned ${ response.status }: ${ response.statusText }`,
+				);
+			}
+		} catch ( error ) {
+			console.error( 'There was a problem with the fetch operation:', error );
+		}
+	}
 
-    public static setNotification(message: string, isSuccess: boolean, target: HTMLElement): void {
-        const notifyWrapper = document.querySelector('#login') as HTMLElement;
-        const notification = document.createElement('p');
-        notification.classList.add('message');
-        if(isSuccess) {
-            notification.classList.add('success');
-        } else {
-            notification.classList.add('error');
-        }
+	public static setNotification(
+		message: string,
+		type: keyof typeof NotificationStatus,
+		target: HTMLElement,
+		context?: string,
+	): void {
+		const existingNotifications = target.parentNode?.querySelectorAll(
+			`.message.${ NotificationStatus[ type ] }`,
+		);
+		let exists = false;
 
-        notification.innerText = message;
+		existingNotifications?.forEach( ( notif ) => {
+			if ( notif.textContent === message ) {
+				exists = true;
+			}
+		} );
 
-        notifyWrapper.insertBefore(notification, target);
-    }
+		if ( exists ) {
+			return;
+		}
+
+		const notificationWrapper = document.createElement( 'p' );
+		notificationWrapper.classList.add( 'message', NotificationStatus[ type ] );
+		if ( context === 'admin' ) {
+			notificationWrapper.classList.add(
+				'notice',
+				`is-dismissable`,
+				`notice-${ NotificationStatus[ type ].toLowerCase() }`,
+			);
+		}
+		const notification = document.createElement( 'p' );
+		notification.innerText = message;
+
+		notificationWrapper.appendChild( notification );
+
+		if ( target.parentNode ) {
+			target.parentNode.insertBefore( notificationWrapper, target );
+		}
+	}
 }
-
-
-

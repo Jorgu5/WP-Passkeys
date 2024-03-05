@@ -7,7 +7,7 @@ use WpPasskeys\Credentials\CredentialEndpoints;
 use WpPasskeys\Credentials\SessionHandler;
 use WpPasskeys\Credentials\SessionHandlerInterface;
 use Brain\Monkey\Functions;
-use WpPasskeys\Exceptions\CredentialException;
+use WpPasskeys\Exceptions\InvalidCredentialsException;
 use WpPasskeys\Tests\TestCase;
 
 class CredentialEndpointsTest extends TestCase
@@ -70,7 +70,7 @@ class CredentialEndpointsTest extends TestCase
 
     public function testRemoveUserCredentialsThrowsExceptionIfNoPkCredentialId(): void
     {
-        $this->expectException(CredentialException::class);
+        $this->expectException(InvalidCredentialsException::class);
         $this->expectExceptionMessage('No pk_credential_id found for this user in meta');
 
         Functions\expect('get_current_user_id')->once()->andReturn(1);
@@ -81,7 +81,7 @@ class CredentialEndpointsTest extends TestCase
 
     public function testRemoveUserCredentialsThrowsExceptionIfDeleteUserMetaFails(): void
     {
-        $this->expectException(CredentialException::class);
+        $this->expectException(InvalidCredentialsException::class);
         $this->expectExceptionMessage('Failed to remove pk_credential_id meta input');
 
         Functions\expect('get_current_user_id')->once()->andReturn(1);
@@ -97,7 +97,7 @@ class CredentialEndpointsTest extends TestCase
 
         $wpdb = Mockery::mock('wpdb');
 
-        $this->expectException(CredentialException::class);
+        $this->expectException(InvalidCredentialsException::class);
         $this->expectExceptionMessage('Failed to remove credential source');
 
         Functions\expect('get_current_user_id')->once()->andReturn(1);

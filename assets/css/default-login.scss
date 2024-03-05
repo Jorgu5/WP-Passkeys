@@ -1,41 +1,69 @@
 #registerform,
 #loginform {
   .passkeys-button {
-    padding: 5px;
-    width: 40px;
-    background-color: transparent;
-    border-width: 1px;
-    background-image: url('../img/fingerprint.svg');
-    background-size: 28px;
-    background-position: center center;
-    background-repeat: no-repeat;
-    text-indent: -9999px;
-    display: inline-block;
+	background-color: transparent;
+	background-image: url('../img/man-key-icon.svg');
+	background-position: 5px center;
+	background-repeat: no-repeat;
+	background-size: 18px;
+	border: 2px solid #000;
+	color: #000;
+	padding-left: 25px;
+
+	&:hover,
+	&:active,
+	&:focus {
+	  border-style: dashed;
+	}
+  }
+
+  .passkeys-login__wrapper {
+	margin: 10px 0 0;
   }
 
   #display_name {
-    width: 100%;
+	width: 100%;
   }
 
   .passkeys-login {
-    &__wrapper {
-      display: flex;
-      justify-content: flex-end;
-      gap: 10px;
-      align-items: center;
-      > .submit {
-        float: none;
-      }
-    }
+	&__wrapper {
+	  align-items: center;
+	  display: flex;
+	  gap: 10px;
+	  justify-content: flex-end;
+
+	  > .submit {
+		float: none;
+	  }
+	}
   }
 }
 
 #login {
+  .forgetmenot {
+	float: none;
+	text-align: right;
+  }
+
   .message.error,
   input.error {
-    border-color: #f00;
+	border-color: #f00;
   }
+
   input.success {
-    border-color: #0f0;
+	border-color: #0f0;
   }
+}
+
+#registerform {
+  padding: 24px;
+
+  #reg_passmail {
+	margin-bottom: 0;
+  }
+}
+
+#login,
+#register {
+  width: 430px;
 }

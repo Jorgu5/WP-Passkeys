@@ -6,13 +6,93 @@
 
 namespace WpPasskeys;
 
-use Exception;
-use Webauthn\PublicKeyCredentialRpEntity;
-use Webauthn\PublicKeyCredentialUserEntity;
+use Throwable;
+use WP_Error;
+use WP_REST_Response;
 use WP_User;
 
-class Utilities implements UtilitiesInterface
+class Utilities
 {
+    public static function safeEncode(string $data): string
+    {
+        return rtrim(strtr(base64_encode($data), '+/', '-_'), '=');
+    }
+
+    public static function getHostname(): string
+    {
+        $site_url = get_site_url();
+
+        return parse_url($site_url, PHP_URL_HOST);
+    }
+
+    /**
+     * @param Throwable $exception
+     * @param int|string|null $errorCode
+     *
+     * @return WP_REST_Response
+     */
+    public static function handleException(Throwable $exception, int|string|null $errorCode = 500): WP_REST_Response
+    {
+        $errorData = [
+            'code'    => $errorCode,
+            'message' => $exception->getMessage(),
+        ];
+
+        self::logger($exception);
+
+        if (
+            (defined('WP_ENVIRONMENT_TYPE') && WP_ENVIRONMENT_TYPE === 'development') ||
+            (defined('WP_DEBUG') && WP_DEBUG)
+        ) {
+            $errorData['trace'] = $exception->getTrace();
+        }
+
+        return new WP_REST_Response($errorData, $errorCode);
+    }
+
+    public static function logger($error): void
+    {
+        if ($error instanceof Throwable) {
+            $logMessage = sprintf(
+                "Exception occurred: %s in %s:%d\nStack trace:\n%s",
+                $error->getMessage(),
+                $error->getFile(),
+                $error->getLine(),
+                $error->getTraceAsString()
+            );
+        } elseif ($error instanceof WP_Error) {
+            $logMessage = sprintf(
+                "WordPress Error: '%s' with code '%s'",
+                $error->get_error_message(),
+                $error->get_error_code()
+            );
+        } else {
+            return;
+        }
+
+        if (defined('WP_DEBUG_LOG') && WP_DEBUG) {
+            error_log(print_r($logMessage, true));
+        }
+    }
+
+    /**
+     * @param WP_Error $error
+     *
+     * @return WP_REST_Response
+     */
+
+    public static function handleWpError(WP_Error $error): WP_REST_Response
+    {
+        $errorData = [
+            'code'    => $error->get_error_code(),
+            'message' => $error->get_error_message(),
+            'data'    => $error->get_error_data(),
+        ];
+
+        self::logger($error);
+
+        return new WP_REST_Response($errorData, $error->get_error_code());
+    }
 
     public function setAuthCookie(string $username = null, int $userId = null): void
     {
@@ -37,32 +117,36 @@ class Utilities implements UtilitiesInterface
         }
     }
 
-    public function getRedirectUrl(): string
-    {
-        $redirectUrl = get_option('wppk_passkeys_redirect');
-        if (empty($redirectUrl)) {
-            $redirectUrl = get_admin_url();
-        }
-        return $redirectUrl;
-    }
-
     public function setUserAndCookie(WP_User|null $user): void
     {
-        if (!$user) {
+        if (! $user) {
             return;
         }
         wp_set_current_user($user->ID, $user->user_login);
         wp_set_auth_cookie($user->ID, true);
     }
 
-    public static function safeEncode(string $data): string
+    public function getRedirectUrl(): string
     {
-        return rtrim(strtr(base64_encode($data), '+/', '-_'), '=');
+        $redirectUrl = get_option('wppk_passkeys_redirect');
+        if (empty($redirectUrl)) {
+            $redirectUrl = get_admin_url();
+        }
+
+        return $redirectUrl;
     }
 
-    public static function getHostname(): string
+    public function isLocalhost(): bool
     {
-        $site_url = get_site_url();
-        return parse_url($site_url, PHP_URL_HOST);
+        if (defined('WP_DEBUG') && WP_DEBUG) {
+            return true;
+        }
+
+        $localhost_urls = ['localhost', '127.0.0.1', '::1'];
+        if (in_array($_SERVER['SERVER_NAME'], $localhost_urls)) {
+            return true;
+        }
+
+        return false;
     }
 }

@@ -17,6 +17,7 @@ use Throwable;
 use Webauthn\AuthenticationExtensions\ExtensionOutputCheckerHandler;
 use Webauthn\AuthenticatorAssertionResponse;
 use Webauthn\AuthenticatorAssertionResponseValidator;
+use Webauthn\AuthenticatorResponse;
 use Webauthn\PublicKeyCredential;
 use Webauthn\PublicKeyCredentialLoader;
 use Webauthn\PublicKeyCredentialRequestOptions;
@@ -27,10 +28,9 @@ use WpOrg\Requests\Exception\InvalidArgument;
 use WpPasskeys\AlgorithmManager\AlgorithmManagerInterface;
 use WpPasskeys\Credentials\CredentialHelperInterface;
 use WpPasskeys\Credentials\SessionHandlerInterface;
-use WpPasskeys\Exceptions\CredentialException;
-use WpPasskeys\Exceptions\RandomException;
+use WpPasskeys\Exceptions\InvalidCredentialsException;
+use WpPasskeys\Exceptions\InvalidUserDataException;
 use WpPasskeys\Utilities;
-use WpPasskeys\UtilitiesInterface;
 
 class AuthEndpoints implements AuthEndpointsInterface
 {
@@ -46,7 +46,7 @@ class AuthEndpoints implements AuthEndpointsInterface
         public readonly AuthenticatorAssertionResponseValidator $authenticatorAssertionResponseValidator,
         public readonly CredentialHelperInterface $credentialHelper,
         public readonly AlgorithmManagerInterface $algorithmManager,
-        public readonly UtilitiesInterface $utilities,
+        public readonly Utilities $utilities,
         public readonly SessionHandlerInterface $sessionHandler
     ) {
         $this->verifiedResponse = [];
@@ -56,7 +56,30 @@ class AuthEndpoints implements AuthEndpointsInterface
     {
         $publicKeyCredentialRequestOptions = $this->requestOptions();
         $this->sessionHandler->set(self::SESSION_KEY, $publicKeyCredentialRequestOptions);
+
         return new WP_REST_Response($publicKeyCredentialRequestOptions, 200);
+    }
+
+    public function requestOptions(): PublicKeyCredentialRequestOptions|WP_Error
+    {
+        try {
+            $publicKeyCredentialRequestOptions                   = PublicKeyCredentialRequestOptions::create(
+                $this->getChallenge()
+            );
+            $publicKeyCredentialRequestOptions->allowCredentials = [];
+            $publicKeyCredentialRequestOptions->userVerification =
+                $publicKeyCredentialRequestOptions::USER_VERIFICATION_REQUIREMENT_REQUIRED;
+            $publicKeyCredentialRequestOptions->rpId             = Utilities::getHostname();
+
+            return $publicKeyCredentialRequestOptions;
+        } catch (Exception $e) {
+            return new WP_Error('server', $e->getMessage(), $e->getTrace());
+        }
+    }
+
+    public function getChallenge(): string
+    {
+        return random_bytes(self::CHALLENGE_LENGTH);
     }
 
     public function verifyPublicKeyCredentials(WP_REST_Request $request): WP_REST_Response|WP_Error
@@ -71,43 +94,46 @@ class AuthEndpoints implements AuthEndpointsInterface
             $this->loginUserWithCookie($request);
 
             $this->verifiedResponse = [
-                'status' => 'Verified',
-                'statusText' => 'Successfully verified the credential.',
-                'redirectUrl' => $this->utilities->getRedirectUrl()
+                'code'    => 200,
+                'message' => 'Successfully verified the credential',
+                'data'    => [
+                    'redirectUrl' => $this->utilities->getRedirectUrl(),
+                ],
             ];
 
             $response = new WP_REST_Response($this->verifiedResponse, 200);
-        } catch (JsonException $e) {
-            $response = new WP_Error('json', $e->getMessage(), $e->getTrace());
+        } catch (JsonException | InvalidCredentialsException $e) {
+            $response = Utilities::handleException($e, $e->getCode());
         } catch (InvalidArgument $e) {
-            $response = new WP_Error('invalid-argument', $e->getMessage(), $e->getTrace());
-        } catch (CredentialException $e) {
-            $response = new WP_Error('credential-error', $e->getMessage(), $e->getTrace());
+            $response = Utilities::handleException($e, 'Invalid Argument');
         } catch (Throwable $e) {
-            $response = new WP_Error('server', $e->getMessage(), $e->getTrace());
+            $response = Utilities::handleException($e);
         }
-        return $response;
-    }
 
-    public function getVerifiedResponse(): array
-    {
-        return $this->verifiedResponse;
+        return $response;
     }
 
     public function getAuthenticatorAssertionResponse(
         PublicKeyCredential $pkCredential
     ): AuthenticatorAssertionResponse {
         $authenticatorAssertionResponse = $this->getPkCredentialResponse($pkCredential);
-        if (!($authenticatorAssertionResponse instanceof AuthenticatorAssertionResponse)) {
-            throw new \InvalidArgumentException('AuthenticatorAssertionResponse expected');
+        if (! ($authenticatorAssertionResponse instanceof AuthenticatorAssertionResponse)) {
+            throw new InvalidArgumentException('AuthenticatorAssertionResponse expected');
         }
 
         return $authenticatorAssertionResponse;
     }
 
-    public function getPkCredentialResponse(PublicKeyCredential $pkCredential)
+    public function getPkCredentialResponse(PublicKeyCredential $pkCredential): AuthenticatorResponse
     {
         return $pkCredential->response;
+    }
+
+    public function getPkCredential(WP_REST_Request $request): PublicKeyCredential
+    {
+        $data = $request->get_body();
+
+        return $this->publicKeyCredentialLoader->load($data);
     }
 
     public function validateAuthenticatorAssertionResponse(
@@ -118,9 +144,9 @@ class AuthEndpoints implements AuthEndpointsInterface
             $this->getRawId($request),
             $authenticatorAssertionResponse,
             $this->sessionHandler->get(self::SESSION_KEY),
-            Utilities::getHostname(),
+            $this->utilities::getHostname(),
             $authenticatorAssertionResponse->userHandle,
-            ['localhost']
+            $this->utilities->isLocalhost() ? ["localhost"] : [],
         );
     }
 
@@ -135,51 +161,36 @@ class AuthEndpoints implements AuthEndpointsInterface
         );
     }
 
-    public function getPkCredential(WP_REST_Request $request): PublicKeyCredential
+    public function getRawId(WP_REST_Request $request): string
     {
-        $data = $request->get_body();
-        return $this->publicKeyCredentialLoader->load($data);
+        $rawId = $request->get_param('rawId');
+        if (! is_string($rawId)) {
+            throw new InvalidArgumentException('Raw ID must be a string');
+        }
+        if (empty($rawId)) {
+            throw new InvalidArgumentException('Raw ID is empty');
+        }
+
+        return $rawId;
     }
 
+    /**
+     * @throws InvalidCredentialsException
+     * @throws InvalidUserDataException
+     */
     public function loginUserWithCookie(WP_REST_Request $request): void
     {
         if ($request->has_param('id')) {
             $userId = $this->credentialHelper->getUserByCredentialId($request->get_param('id'));
             $this->utilities->setAuthCookie(null, $userId);
         } else {
-            $userLogin = $this->credentialHelper->getUserLogin();
+            $userLogin = $this->credentialHelper->getSessionUserLogin();
             $this->utilities->setAuthCookie($userLogin);
         }
     }
 
-    public function getRawId(WP_REST_Request $request): string
+    public function getVerifiedResponse(): array
     {
-        $rawId = $request->get_param('rawId');
-        if (!is_string($rawId)) {
-            throw new InvalidArgumentException('Raw ID must be a string');
-        }
-        if (empty($rawId)) {
-            throw new InvalidArgumentException('Raw ID is empty');
-        }
-        return $rawId;
-    }
-
-    public function requestOptions(): PublicKeyCredentialRequestOptions | WP_Error
-    {
-        try {
-            $publicKeyCredentialRequestOptions = PublicKeyCredentialRequestOptions::create($this->getChallenge());
-            $publicKeyCredentialRequestOptions->allowCredentials = [];
-            $publicKeyCredentialRequestOptions->userVerification =
-                $publicKeyCredentialRequestOptions::USER_VERIFICATION_REQUIREMENT_REQUIRED;
-            $publicKeyCredentialRequestOptions->rpId = Utilities::getHostname();
-            return $publicKeyCredentialRequestOptions;
-        } catch (Exception $e) {
-            return new WP_Error('server', $e->getMessage(), $e->getTrace());
-        }
-    }
-
-    public function getChallenge(): string
-    {
-        return random_bytes(self::CHALLENGE_LENGTH);
+        return $this->verifiedResponse;
     }
 }

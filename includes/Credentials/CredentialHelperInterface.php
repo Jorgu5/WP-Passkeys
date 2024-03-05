@@ -12,7 +12,8 @@ use Webauthn\Exception\InvalidDataException;
 use Webauthn\PublicKeyCredentialCreationOptions;
 use Webauthn\PublicKeyCredentialSource;
 use Webauthn\PublicKeyCredentialUserEntity;
-use WpPasskeys\Exceptions\CredentialException;
+use WP_Error;
+use WpPasskeys\Exceptions\InvalidCredentialsException;
 
 /**
  * Credential Helper for WP Pass Keys.
@@ -24,11 +25,11 @@ interface CredentialHelperInterface
      *
      * @param string $publicKeyCredentialId The credential ID to search for.
      *
-     * @return PublicKeyCredentialSource|null The found PublicKeyCredentialSource, or null if not found.
+     * @return PublicKeyCredentialSource|WP_Error|null The found PublicKeyCredentialSource, or null if not found.
      * @throws InvalidDataException
-     * @throws \JsonException
+     * @throws JsonException
      */
-    public function findOneByCredentialId(string $publicKeyCredentialId): ?PublicKeyCredentialSource;
+    public function findOneByCredentialId(string $publicKeyCredentialId): PublicKeyCredentialSource|WP_Error|null;
 
     /**
      * Finds all credential sources for a given WordPress username.
@@ -37,8 +38,8 @@ interface CredentialHelperInterface
      *
      * @return array The array of PublicKeyCredentialDescriptor objects.
      * @throws InvalidDataException
-     * @throws \JsonException
-     * @throws CredentialException
+     * @throws JsonException
+     * @throws InvalidCredentialsException
      */
     public function findAllForUserEntity(PublicKeyCredentialUserEntity $publicKeyCredentialUserEntity): array;
 
@@ -52,12 +53,9 @@ interface CredentialHelperInterface
      */
     public function saveCredentialSource(PublicKeyCredentialSource $publicKeyCredentialSource): void;
 
-    /**
-     * @throws CredentialException
-     */
-    public function createUserWithPkCredentialId(string $publicKeyCredentialId): void;
-
-    public function saveSessionCredentialOptions(PublicKeyCredentialCreationOptions $publicKeyCredentialCreationOptions): void;
+    public function saveSessionCredentialOptions(
+        PublicKeyCredentialCreationOptions $publicKeyCredentialCreationOptions
+    ): void;
 
     /**
      * Retrieves the session credential data.
@@ -68,9 +66,9 @@ interface CredentialHelperInterface
     public function getSessionCredentialOptions(): ?PublicKeyCredentialCreationOptions;
 
     /**
-     * @throws CredentialException
+     * @throws InvalidCredentialsException
      */
-    public function getUserByCredentialId(string $pkCredentialId): int;
+    public function getUserByCredentialId(string $pkCredentialId): int|WP_Error;
 
     /**
      * Retrieves the validated credentials.
@@ -85,8 +83,18 @@ interface CredentialHelperInterface
     ): PublicKeyCredentialSource;
 
     /**
-     * @throws CredentialException
-     * @throws Exception
+     * @param array $userData
+     * @param string $publicKeyCredentialId
+     *
+     * @return int|WP_Error
      */
-    public function storePublicKeyCredentialSource(PublicKeyCredentialSource $publicKeyCredentialSource): void;
+    public function addAccountWithPkCredentialId(array $userData, string $publicKeyCredentialId,): int|WP_Error;
+
+    /**
+     * @param int $userId
+     * @param string $publicKeyCredentialId
+     *
+     * @return int|WP_Error
+     */
+    public function updateExistingUserWithPkCredentialId(int $userId, string $publicKeyCredentialId): int|WP_Error;
 }

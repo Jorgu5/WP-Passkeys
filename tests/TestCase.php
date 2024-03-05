@@ -3,8 +3,6 @@
 namespace WpPasskeys\Tests;
 
 use Mockery;
-use function Brain\Monkey\setUp;
-use function Brain\Monkey\tearDown;
 use Mockery\Adapter\Phpunit\MockeryPHPUnitIntegration;
 use PHPUnit\Framework\TestCase as PHPUnitTestCase;
 use Brain\Monkey;

@@ -12,11 +12,11 @@ class EnqueueAssets
     public static function register(): void
     {
         $pluginAssets = new self();
-        add_action('login_enqueue_scripts', [ $pluginAssets, 'enqueueLoginScripts' ]);
-        add_action('login_enqueue_scripts', [ $pluginAssets, 'enqueueLoginStyles' ]);
+        add_action('login_enqueue_scripts', [$pluginAssets, 'enqueueLoginScripts']);
+        add_action('login_enqueue_scripts', [$pluginAssets, 'enqueueLoginStyles']);
 
-        add_action('admin_enqueue_scripts', [ $pluginAssets, 'enqueueSettingStyles' ]);
-        add_action('admin_enqueue_scripts', [ $pluginAssets, 'enqueueUserProfileScript' ]);
+        add_action('admin_enqueue_scripts', [$pluginAssets, 'enqueueSettingStyles']);
+        add_action('admin_enqueue_scripts', [$pluginAssets, 'enqueueUserProfileScript']);
     }
 
     /**
@@ -30,7 +30,7 @@ class EnqueueAssets
         wp_enqueue_script(
             'passkeys-register',
             $this->getAssetsPath() . 'js/registration/index.js',
-            array(),
+            [],
             WP_PASSKEYS_VERSION,
             true
         );
@@ -38,20 +38,40 @@ class EnqueueAssets
         wp_enqueue_script(
             'passkeys-form',
             $this->getAssetsPath() . 'js/form/index.js',
-            array(),
+            [],
             WP_PASSKEYS_VERSION,
-            true
+            false
         );
 
-        if (!isset($_GET['action']) || ($_GET['action'] !== 'register')) {
+        if (! isset($_GET['action']) || ($_GET['action'] !== 'register')) {
             wp_enqueue_script(
                 'passkeys-auth',
                 $this->getAssetsPath() . 'js/authentication/index.js',
-                array(),
+                [],
                 WP_PASSKEYS_VERSION,
                 false,
             );
         }
+
+        wp_localize_script(
+            'passkeys-form',
+            'pkUser',
+            [
+                'restEndpoints' => [
+                    'main' => rest_url('wp-passkeys'),
+                ],
+            ]
+        );
+    }
+
+    /**
+     * Retrieves the path to the asset's directory.
+     *
+     * @return string The path to the asset's directory.
+     */
+    private function getAssetsPath(): string
+    {
+        return plugin_dir_url(__DIR__) . 'dist/';
     }
 
     public function enqueueUserProfileScript(): void
@@ -62,16 +82,20 @@ class EnqueueAssets
         wp_enqueue_script(
             'passkeys-user-profile-scripts',
             $this->getAssetsPath() . 'js/admin/index.js',
-            array(),
+            [],
             WP_PASSKEYS_VERSION,
             true
         );
         wp_localize_script(
             'passkeys-user-profile-scripts',
-            'passkeys',
-            array(
+            'pkUser',
+            [
                 'nonce' => wp_create_nonce('wp_rest'),
-            )
+                'restEndpoints' => [
+                    'main' => rest_url('wp-passkeys'),
+                    'user' => rest_url('wp-passkeys/creds/user'),
+                ],
+            ]
         );
     }
 
@@ -80,7 +104,7 @@ class EnqueueAssets
         wp_enqueue_style(
             'passkeys-main-styles',
             $this->getAssetsPath() . 'css/default-login.css',
-            array(),
+            [],
             WP_PASSKEYS_VERSION,
             'all'
         );
@@ -94,19 +118,9 @@ class EnqueueAssets
         wp_enqueue_style(
             'passkeys-plugin-settings-styles',
             $this->getAssetsPath() . 'css/plugin-settings.css',
-            array(),
+            [],
             WP_PASSKEYS_VERSION,
             'all'
         );
-    }
-
-    /**
-     * Retrieves the path to the asset's directory.
-     *
-     * @return string The path to the asset's directory.
-     */
-    private function getAssetsPath(): string
-    {
-        return plugin_dir_url(__DIR__) . 'dist/';
     }
 }

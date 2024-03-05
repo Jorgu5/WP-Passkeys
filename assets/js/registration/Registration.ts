@@ -1,74 +1,119 @@
 import {
-    PublicKeyCredentialCreationOptionsJSON,
-    RegistrationResponseJSON
-} from "@simplewebauthn/typescript-types";
-import { startRegistration } from "@simplewebauthn/browser";
-import {NotifyFunctionType, VerificationResponse} from "../WebauthnTypes";
+	PublicKeyCredentialCreationOptionsJSON,
+	RegistrationResponseJSON,
+} from '@simplewebauthn/typescript-types';
+import { startRegistration } from '@simplewebauthn/browser';
+import { VerificationResponse, contextType } from '../WebauthnTypes';
+import Utilities from '../Utilities';
 
 export default class Registration {
-    private readonly notify: NotifyFunctionType | undefined;
+	private readonly registerWrapper: HTMLElement;
+	private readonly context: contextType;
+	private readonly headers: HeadersInit;
+	private readonly isAdmin: boolean;
 
-    constructor(notifyFunction?: NotifyFunctionType) {
-        this.notify = notifyFunction;
-    }
+	constructor() {
+		this.registerWrapper = document.querySelector(
+			'#registerform',
+		) as HTMLElement;
+		this.context = pkUser as contextType;
+		this.headers = {
+			'Content-Type': 'application/json',
+		};
 
-    async generateOptions(): Promise<PublicKeyCredentialCreationOptionsJSON> {
-        try {
-            const response: Response = await fetch('/wp-json/wp-passkeys/register/options');
-            return await response.json();
-        } catch (error: any) {
-            console.error("Error fetching registration options:", error);
-            throw error;
-        }
-    }
+		this.isAdmin = false;
 
-    async verify(attResp: RegistrationResponseJSON): Promise<VerificationResponse> {
-        try {
-            const response: Response = await fetch('/wp-json/wp-passkeys/register/verify', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(attResp),
-            });
-            return await response.json();
-        } catch (error: any) {
-            console.error("Error verifying registration:", error);
-            throw error;
-        }
-    }
+		if ( this.context.nonce ) {
+			this.isAdmin = true;
+			this.headers[ 'X-WP-Nonce' ] = this.context.nonce;
+		}
+	}
 
-    async start(): Promise<VerificationResponse> {
-        try {
-            const startResp: PublicKeyCredentialCreationOptionsJSON = await this.generateOptions();
-            const attResp: RegistrationResponseJSON = await startRegistration(startResp);
-            let verificationJSON: VerificationResponse = {
-                code: '',
-                message: '',
-            }
-            try {
-                verificationJSON = await this.verify(attResp);
-                if (verificationJSON.data?.redirectUrl) {
-                    window.location.href = verificationJSON.data.redirectUrl;
-                }
-            } catch (error: any) {
-                console.error("Error in registration verification:", error);
-            }
+	async generateOptions(): Promise<PublicKeyCredentialCreationOptionsJSON> {
+		try {
+			const response: Response = await fetch(
+				this.context.restEndpoints.main + '/register/options',
+				{
+					method: 'GET',
+					headers: this.headers,
+				},
+			);
+			if ( ! response.ok ) {
+				console.error(
+					`Server returned ${ response.status }: ${ response.statusText }`,
+				);
+			}
+			return await response.json();
+		} catch ( error: any ) {
+			console.log( error );
+			console.error( 'Error fetching registration options:', error );
+			throw error;
+		}
+	}
 
-            const notificationTarget = document.querySelector('#registerform') as HTMLElement;
+	async verify(
+		attResp: RegistrationResponseJSON,
+	): Promise<VerificationResponse> {
+		try {
+			const response: Response = await fetch(
+				this.context.restEndpoints.main + '/register/verify',
+				{
+					method: 'POST',
+					headers: this.headers,
+					body: JSON.stringify( attResp ),
+				},
+			);
+			if ( ! response.ok ) {
+				console.error(
+					`Server returned ${ response.status }: ${ response.statusText }`,
+				);
+			}
+			return await response.json();
+		} catch ( error: any ) {
+			console.log( error );
+			console.error( 'Error verifying registration:', error );
+			throw error;
+		}
+	}
 
-            if(verificationJSON?.code === 'verified') {
-                this.notify(verificationJSON?.message, true, notificationTarget);
-            }
-            
-            if(verificationJSON?.code === 'credential-error') {
-                this.notify(verificationJSON?.message, false, notificationTarget);
-            }
+	async start(): Promise<VerificationResponse> {
+		try {
+			const options: PublicKeyCredentialCreationOptionsJSON =
+        await this.generateOptions();
+			const attResp: RegistrationResponseJSON =
+        await startRegistration( options );
+			let verificationJSON: VerificationResponse = {
+				code: '',
+				message: '',
+			};
+			try {
+				verificationJSON = await this.verify( attResp );
+				if ( verificationJSON.data?.redirectUrl && ! this.isAdmin ) {
+					window.location.href = verificationJSON.data.redirectUrl;
+				}
+			} catch ( error: any ) {
+				console.error( 'Error in registration verification:', error );
+			}
 
-            return verificationJSON;
+			if ( verificationJSON?.code === 200 ) {
+				Utilities.setNotification(
+					verificationJSON?.message,
+					'Success',
+					this.registerWrapper,
+					this.isAdmin ? 'admin' : '',
+				);
+			} else {
+				Utilities.setNotification(
+					verificationJSON?.message,
+					'Error',
+					this.registerWrapper,
+					this.isAdmin ? 'admin' : '',
+				);
+			}
 
-        } catch (error: any) {
-            throw error;
-        }
-    }
+			return verificationJSON;
+		} catch ( error: any ) {
+			throw error;
+		}
+	}
 }

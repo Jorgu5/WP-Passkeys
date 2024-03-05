@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace WpPasskeys\Credentials;
 
+use WpPasskeys\Utilities;
+
 class UsernameHandler
 {
     public function __construct(
@@ -11,67 +13,61 @@ class UsernameHandler
     ) {
     }
 
-    public function getUserData(): array
+    public function getOrCreateUserData(): array
     {
-        if (!$this->sessionHandler->has('user_data')) {
-            return [];
+        $userData = [];
+        if ($this->sessionHandler->has('user_data')) {
+            $userData = $this->sessionHandler->get('user_data');
+            [$username, $displayName] = $this->getDisplayAndUserName($userData);
+        } elseif (is_user_logged_in()) {
+            $user        = wp_get_current_user();
+            $username    = $user?->user_login;
+            $displayName = $user?->display_name;
+        } else {
+            [$username, $displayName] = $this->getDisplayAndUserName();
         }
 
-        $userData = $this->sessionHandler->get('user_data');
-        [$username, $displayName] = $this->getDisplayAndUserName($userData);
-
-        return [
-            'user_login' => $username,
-            'user_email' => $userData['user_email'] ?? '',
+        $userData = [
+            'user_login'   => $username,
+            'user_email'   => $userData['user_email'] ?? '',
             'display_name' => $displayName,
         ];
+
+        $this->sessionHandler->set('user_data', $userData);
+
+        return $userData;
+    }
+
+    public function getDisplayAndUserName(array $userData = []): array
+    {
+        $userLogin           = $userData['user_login'] ?? '';
+        $userEmail           = $userData['user_email'] ?? '';
+        $displayNameFromData = $userData['display_name'] ?? '';
+
+        $username    = $this->getUsername($userLogin, $userEmail, $displayNameFromData);
+        $displayName = $this->getDisplayName($displayNameFromData, $username, $userEmail);
+
+        return [$username, $displayName];
     }
 
     public function getUsername(string $username = '', string $email = '', string $displayName = ''): string
     {
-        $theUsername = '';
-
-        if (!empty($username)) {
+        if (! empty($username)) {
             $theUsername = $username;
-        } elseif (!empty($email)) {
+        } elseif (! empty($email)) {
             $theUsername = $this->extractUsernameFromEmail($email);
-        } elseif (!empty($displayName)) {
+        } elseif (! empty($displayName)) {
             $theUsername = $this->setUsernameAsDisplayName($displayName);
+        } else {
+            $theUsername = $this->passkeysUniqueId('user', $this->getUserCurrentMaxIndex());
         }
 
         return $theUsername;
     }
 
-
-
-    public function getDisplayName(string $displayName, string $username, string $email): string
+    public function extractUsernameFromEmail(string $email = ''): string
     {
-        if (empty($username) && empty($email) && empty($displayName)) {
-            return wp_unique_id('user_');
-        }
-
-        if (!empty($username) || !empty($displayName)) {
-            return $displayName ?: $username;
-        }
-        return !empty($email) ? explode('@', $email)[0] : $username;
-    }
-
-
-    public function getDisplayAndUserName(array $userData = []): array
-    {
-        $username = $this->getUsername(
-            $userData['user_login'] ?? '',
-            $userData['user_email'] ?? '',
-            $userData['display_name'] ?? ''
-        );
-
-        $displayName = $this->getDisplayName(
-            $userData['display_name'] ?? '',
-            $username,
-            $userData['user_email'] ?? ''
-        );
-
-        return [$username ?: wp_unique_id('user_'), $displayName ?: $username];
+        return explode('@', $email)[0];
     }
 
     public function setUsernameAsDisplayName(string $displayName = ''): string
@@ -79,8 +75,50 @@ class UsernameHandler
         return strtolower(str_replace(' ', '', $displayName));
     }
 
-    public function extractUsernameFromEmail(string $email = ''): string
+    public function passkeysUniqueId(string $prefix = '', int $startIndex = 0): string
     {
-        return explode('@', $email)[0];
+        return $prefix . '_' . ++$startIndex;
+    }
+
+    public function getUserCurrentMaxIndex(): int
+    {
+        $users   = get_users(['fields' => 'user_login']);
+        $indexes = array_map(static function ($user) {
+            return (int)str_replace('user_', '', $user);
+        }, $users);
+
+        if (empty($indexes)) {
+            return 0;
+        }
+
+        return max($indexes);
+    }
+
+    public function getDisplayName(string $displayName, string $username, string $email): string
+    {
+        if (empty($username) && empty($email) && empty($displayName)) {
+            return $this->passkeysUniqueId('user', $this->getUserCurrentMaxIndex());
+        }
+
+        if (! empty($username) || ! empty($displayName)) {
+            return $displayName ?: $username;
+        }
+
+        return ! empty($email) ? explode('@', $email)[0] : $username;
+    }
+
+    public function getUserEarlyData(): array
+    {
+        if (isset($_COOKIE[LOGGED_IN_COOKIE])) {
+            // Manually inspect the logged-in cookie.
+            // Note: This does not guarantee the user is valid or has not tampered with the cookie.
+            $user_id = wp_validate_auth_cookie($_COOKIE[LOGGED_IN_COOKIE], 'logged_in');
+            if ($user_id) {
+                // Now, you have a user ID before the usual 'init' action.
+                // You can load the user object manually if needed.
+                $user = get_user_by('id', $user_id);
+                // Note: Use this data cautiously, as full user session verification may not have occurred yet.
+            }
+        }
     }
 }

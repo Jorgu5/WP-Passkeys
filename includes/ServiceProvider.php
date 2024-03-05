@@ -9,6 +9,7 @@ use Webauthn\AttestationStatement\NoneAttestationStatementSupport;
 use Webauthn\AuthenticationExtensions\ExtensionOutputCheckerHandler;
 use Webauthn\AuthenticatorAssertionResponseValidator;
 use Webauthn\PublicKeyCredentialLoader;
+use WpPasskeys\Admin\UserSettings;
 use WpPasskeys\Ceremonies\AuthEndpoints;
 use WpPasskeys\Ceremonies\RegisterEndpoints;
 use WpPasskeys\Credentials\CredentialEntity;
@@ -46,8 +47,8 @@ class ServiceProvider extends AbstractServiceProvider
         AttestationObjectLoader::class,
         AttestationStatementSupportManager::class,
         CredentialEntityInterface::class,
-        FormHandler::class,
-        UtilitiesInterface::class,
+        Utilities::class,
+        UserSettings::class,
     ];
 
     public function provides(string $id): bool
@@ -61,8 +62,12 @@ class ServiceProvider extends AbstractServiceProvider
         $container->add(AttestationStatementSupportManager::class, function () {
             $manager = AttestationStatementSupportManager::create();
             $manager->add(NoneAttestationStatementSupport::create());
+
             return $manager;
         });
+
+        $container->add(UsernameHandler::class)
+                  ->addArgument(SessionHandlerInterface::class);
 
         $container->add(AttestationObjectLoader::class)
                   ->addArgument(AttestationStatementSupportManager::class);
@@ -79,7 +84,6 @@ class ServiceProvider extends AbstractServiceProvider
         $container->add(CredentialHelperInterface::class, CredentialHelper::class)
                   ->addArguments([
                       SessionHandlerInterface::class,
-                      UsernameHandler::class,
                   ]);
         $container->add(PublicKeyCredentialParameters::class)
                   ->addArguments([
@@ -88,10 +92,10 @@ class ServiceProvider extends AbstractServiceProvider
                   ]);
         $container->add(SessionHandlerInterface::class, SessionHandler::class);
         $container->add(AlgorithmManagerInterface::class, AlgorithmManager::class);
-        $container->add(UtilitiesInterface::class, Utilities::class);
+        $container->add(Utilities::class);
         $container->add(CredentialEntityInterface::class, CredentialEntity::class);
         $container->add(CredentialEndpointsInterface::class, CredentialEndpoints::class)
-                    ->addArgument(SessionHandlerInterface::class);
+                  ->addArgument(SessionHandlerInterface::class);
         $container->add(PublicKeyCredentialParametersFactory::class, PublicKeyCredentialParametersFactory::class);
 
 
@@ -101,7 +105,7 @@ class ServiceProvider extends AbstractServiceProvider
                       AuthenticatorAssertionResponseValidator::class,
                       CredentialHelperInterface::class,
                       AlgorithmManagerInterface::class,
-                      UtilitiesInterface::class,
+                      Utilities::class,
                       SessionHandlerInterface::class,
                   ]);
 
@@ -109,8 +113,8 @@ class ServiceProvider extends AbstractServiceProvider
                   ->addArguments([
                       CredentialHelperInterface::class,
                       CredentialEntityInterface::class,
-                      UtilitiesInterface::class,
-                      SessionHandlerInterface::class,
+                      Utilities::class,
+                      UsernameHandler::class,
                       PublicKeyCredentialParameters::class,
                       PublicKeyCredentialLoader::class,
                       AttestationStatementSupportManager::class,
@@ -122,5 +126,8 @@ class ServiceProvider extends AbstractServiceProvider
                       RegisterEndpointsInterface::class,
                       CredentialEndpointsInterface::class,
                   ]);
+
+        $container->add(UserSettings::class)
+                  ->addArgument(CredentialHelperInterface::class);
     }
 }

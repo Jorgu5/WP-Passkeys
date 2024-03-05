@@ -8,15 +8,15 @@ use WpPasskeys\Interfaces;
 
 abstract class CustomException extends Exception implements Interfaces\ExceptionInterface
 {
-    protected $message = 'Unknown exception';     // Exception message
-    protected $code    = 0;                       // User-defined exception code
-    protected string $file;                              // Source filename of exception
-    protected int $line;                              // Source line of exception
+    protected $message = 'Unknown exception';
+    protected $code    = 0;
+    protected string $file;
+    protected int $line;
 
     /**
      * @throws CustomException
      */
-    public function __construct($message = null, $code = 0)
+    public function __construct($message = null, $code = 'dupa')
     {
         if (!$message) {
             throw new $this('Unknown ' . get_class($this));

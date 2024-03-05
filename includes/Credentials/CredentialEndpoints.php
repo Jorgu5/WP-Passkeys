@@ -2,15 +2,18 @@
 
 namespace WpPasskeys\Credentials;
 
+use WP_Error;
 use WP_REST_Request;
 use WP_REST_Response;
-use WpPasskeys\Exceptions\CredentialException;
+use WpPasskeys\Exceptions\InvalidCredentialsException;
+use WpPasskeys\Utilities;
 
 class CredentialEndpoints implements CredentialEndpointsInterface
 {
     public function __construct(
         public readonly SessionHandlerInterface $sessionHandler
-    ) {}
+    ) {
+    }
 
     public function setUserCredentials(WP_REST_Request $request): WP_REST_Response
     {
@@ -21,7 +24,13 @@ class CredentialEndpoints implements CredentialEndpointsInterface
         $savedData = [];
 
         if (empty($userData)) {
-            return new WP_REST_Response('Registering with usernameless method', 200);
+            return new WP_REST_Response(
+                [
+                    'code'    => 204,
+                    'message' => 'No user data found in the request.',
+                    'data'    => [],
+                ]
+            );
         }
 
         foreach ($userData as $userKey => $userValue) {
@@ -37,34 +46,54 @@ class CredentialEndpoints implements CredentialEndpointsInterface
 
         $savedKeys = implode(', ', array_keys($savedData));
 
-        return new WP_REST_Response("Successfully saved {$savedKeys} in session", 200);
+        return new WP_REST_Response(
+            [
+                'code'    => 200,
+                'message' => 'Successfully saved `' . $savedKeys . '` to session.',
+                'data'    => [],
+            ]
+        );
     }
 
     /**
-     * @throws CredentialException
+     * @throws InvalidCredentialsException
      */
     public function removeUserCredentials(WP_REST_Request $request): WP_REST_Response
     {
         global $wpdb;
 
-        $userId = get_current_user_id();
+        $userId         = get_current_user_id();
         $pkCredentialId = get_user_meta($userId, 'pk_credential_id', true);
+        $response       = null;
 
-        if (empty($pkCredentialId)) {
-            throw new CredentialException('No pk_credential_id found for this user in meta');
+        if ($pkCredentialId) {
+            $response = new WP_Error('no_credentials', 'No credentials found for this user', ['status' => 404]);
         }
 
-        if (!delete_user_meta($userId, 'pk_credential_id')) {
-            throw new CredentialException('Failed to remove pk_credential_id meta input');
+        if (! delete_user_meta($userId, 'pk_credential_id')) {
+            throw new InvalidCredentialsException('Failed to remove pk_credential_id meta input');
         }
 
         $deletedRows = $wpdb->delete('wp_pk_credential_sources', ['pk_credential_id' => $pkCredentialId], ['%s']);
 
+        /**
+         * If the delete query fails, we need to reassign the credential id to the user a.k.a backup plan.
+         */
         if ($deletedRows === false) {
-            update_user_meta($userId, 'pk_credential_id', $pkCredentialId); // backup in case something goes wrong
-            throw new CredentialException('Failed to remove credential source');
+            update_user_meta($userId, 'pk_credential_id', $pkCredentialId);
+            throw new InvalidCredentialsException('Failed to remove credential source');
         }
 
-        return new WP_REST_Response(['success' => true], 200);
+        if (is_wp_error($response)) {
+            Utilities::handleWpError($response);
+        }
+
+        return new WP_REST_Response(
+            [
+                'code'    => 200,
+                'message' => 'Successfully removed credentials for user with ID: ' . $userId,
+                'data'    => [],
+            ]
+        );
     }
 }

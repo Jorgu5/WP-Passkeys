@@ -1,82 +1,136 @@
-import {AuthenticationResponseJSON, PublicKeyCredentialRequestOptionsJSON} from "@simplewebauthn/typescript-types";
-import { startAuthentication, browserSupportsWebAuthn, browserSupportsWebAuthnAutofill, platformAuthenticatorIsAvailable } from "@simplewebauthn/browser";
-import {AuthenticatorInterface, NotifyFunctionType} from "../WebauthnTypes";
+// eslint-disable-next-line import/named
+import { AuthenticationResponseJSON } from '@simplewebauthn/typescript-types';
+import {
+	browserSupportsWebAuthn,
+	startAuthentication,
+} from '@simplewebauthn/browser';
+import { AuthenticatorInterface, contextType } from '../WebauthnTypes';
+import Utilities from '../Utilities';
 
 export default class Authentication implements AuthenticatorInterface {
-    private loginForm: HTMLFormElement | null = document.querySelector('#loginform');
-    private readonly notify: NotifyFunctionType | undefined;
+	private readonly loginWrapper: HTMLElement;
+	private readonly context: contextType;
 
-    constructor(notifyFunction?: NotifyFunctionType) {
-        this.notify = notifyFunction;
-    }
+	constructor() {
+		this.loginWrapper = document.querySelector( '#loginform' ) as HTMLElement;
+		this.context = pkUser as contextType;
+	}
 
-    async generateOptions(): Promise<any> {
-        try {
-            const response: Response = await fetch('/wp-json/wp-passkeys/authenticator/options');
-            return await response.json();
-        } catch (error: any) {
-            console.error("Error fetching authentication options:", error);
-            throw error;
-        }
-    }
+	async generateOptions(): Promise<never> {
+		const response: Response = await fetch(
+			this.context.restEndpoints.main + '/authenticator/options',
+		);
+		if ( ! response.ok ) {
+			console.log( response );
+			Utilities.setNotification(
+				`${ response.status }: ${ response.statusText }`,
+				'Error',
+				this.loginWrapper,
+			);
+		}
+		return await response.json();
+	}
 
-    async verify(authResp: AuthenticationResponseJSON, id?: string): Promise<any> {
-        try {
-            const verificationResp: Response = await fetch('/wp-json/wp-passkeys/authenticator/verify' + (id ? '?id='+id : ''), {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(authResp),
-            });
-            return await verificationResp.json();
-        } catch (error: any) {
-            console.error("Error verifying authentication:", error);
-            throw error;
-        }
-    }
+	async verify(
+		authResp: AuthenticationResponseJSON,
+		id?: string,
+	): Promise<any> {
+		const verificationResp: Response = await fetch(
+			this.context.restEndpoints.main +
+        '/authenticator/verify' +
+        ( id ? '?id=' + id : '' ),
+			{
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+				},
+				body: JSON.stringify( authResp ),
+			},
+		);
 
-    async init(isAutofill: boolean): Promise<AuthenticationResponseJSON> {
-        try {
-            const authOptions = await this.generateOptions();
-            const authResp = await startAuthentication(authOptions, isAutofill);
+		if ( verificationResp.status === 204 ) {
+			Utilities.setNotification(
+				`User with this credential ID does not exist in the database.`,
+				'Error',
+				this.loginWrapper,
+			);
+			return;
+		}
 
-            if (authResp) {
-                const { id } = authResp;
-                await this.start(authResp, id);
-                console.info('User successfully ID verified on server');
-            }
-        } catch (error: any) {
-            if(this.loginForm) {
-                this.notify(`Error: ${error.message || error}`, false, this.loginForm);
-            }
-            if(error.name === 'AbortError') {
-                console.warn(error.message);
-                return Promise.resolve(null as unknown as AuthenticationResponseJSON);
-            }
-            throw error;
-        }
+		return await verificationResp.json();
+	}
 
-        return Promise.resolve(null as unknown as AuthenticationResponseJSON);
-    }
+	async init( isAutofill: boolean ): Promise<AuthenticationResponseJSON> {
+		if ( ! browserSupportsWebAuthn() ) {
+			Utilities.setNotification(
+				'This browser does not support WebAuthn. You must use login and password.',
+				'Error',
+				this.loginWrapper,
+			);
+			return Promise.resolve( null as unknown as AuthenticationResponseJSON );
+		}
 
-    async start(authResp: AuthenticationResponseJSON, id?: string): Promise<void> {
-        let verificationJSON: { status?: string, statusText?: string, redirectUrl?: string } = {};
-        try {
-            verificationJSON = await this.verify(authResp, id);
-            if (verificationJSON.redirectUrl) {
-                window.location.href = verificationJSON.redirectUrl;
-            }
-        } catch (error: any) {
-            console.error("Error in authentication verification:", error);
-        }
+		try {
+			const authOptions = await this.generateOptions();
+			const authResp = await startAuthentication( authOptions, isAutofill );
+			if ( authResp ) {
+				const { id } = authResp;
+				await this.start( authResp, id );
+				return authResp; // Assuming this is a valid AuthenticationResponseJSON
+			}
+			// In case authResp is falsy, we return a default value
+			return Promise.resolve( null as unknown as AuthenticationResponseJSON );
+		} catch ( error: any ) {
+			console.log( error );
+			if ( error.name === 'NotAllowedError' ) {
+				Utilities.setNotification(
+					'The request for passkeys login was denied',
+					'Info',
+					this.loginWrapper,
+				);
+			} else {
+				Utilities.setNotification(
+					`${ error.message }`,
+					'Error',
+					this.loginWrapper,
+				);
+			}
+			return Promise.resolve( null as unknown as AuthenticationResponseJSON );
+		}
+	}
 
-        const message = verificationJSON?.status === 'Verified'
-            ? 'Authentication successful'
-            : 'Authentication failed';
+	async start(
+		authResp: AuthenticationResponseJSON,
+		id?: string,
+	): Promise<void> {
+		try {
+			const verificationJSON = await this.verify( authResp, id );
 
-        if(this.loginForm) {
-            this.notify(message, !!verificationJSON?.status, this.loginForm);
-        }
-    }
+			if ( verificationJSON === undefined ) {
+				return;
+			}
+
+			if ( verificationJSON?.code === 200 ) {
+				Utilities.setNotification(
+					verificationJSON?.message,
+					'Success',
+					this.loginWrapper,
+				);
+			} else {
+				Utilities.setNotification(
+					verificationJSON?.message,
+					'Error',
+					this.loginWrapper,
+				);
+			}
+
+			const redirectUrl = verificationJSON?.data.redirectUrl;
+
+			if ( redirectUrl ) {
+				window.location.href = redirectUrl;
+			}
+		} catch ( error ) {
+			console.log( error );
+		}
+	}
 }

@@ -1,7 +1,6 @@
-import Authentication from "./Authentication";
-import Utilities from "../Utilities";
+import Authentication from './Authentication';
 
-const authHandler = new Authentication(Utilities.setNotification.bind(this));
-authHandler.init(true).then(r => console.info(
-    'You rock!'
-));
+document.addEventListener( 'DOMContentLoaded', () => {
+	const authHandler = new Authentication();
+	authHandler.init( true ).then( ( r ) => console.info( 'You rock!' ) );
+} );

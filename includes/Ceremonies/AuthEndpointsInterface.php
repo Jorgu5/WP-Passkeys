@@ -12,7 +12,7 @@ use Webauthn\PublicKeyCredentialRequestOptions;
 use WP_Error;
 use WP_REST_Request;
 use WP_REST_Response;
-use WpPasskeys\Exceptions\CredentialException;
+use WpPasskeys\Exceptions\InvalidCredentialsException;
 use WpPasskeys\Exceptions\RandomException;
 
 interface AuthEndpointsInterface
@@ -38,7 +38,9 @@ interface AuthEndpointsInterface
      */
     public function getVerifiedResponse(): array;
 
-    public function getAuthenticatorAssertionResponse(PublicKeyCredential $pkCredential): AuthenticatorAssertionResponse;
+    public function getAuthenticatorAssertionResponse(
+        PublicKeyCredential $pkCredential
+    ): AuthenticatorAssertionResponse;
 
     public function getPkCredentialResponse(PublicKeyCredential $pkCredential);
 
@@ -61,7 +63,7 @@ interface AuthEndpointsInterface
     public function getPkCredential(WP_REST_Request $request): PublicKeyCredential;
 
     /**
-     * @throws CredentialException
+     * @throws InvalidCredentialsException
      */
     public function loginUserWithCookie(WP_REST_Request $request): void;
 
@@ -70,7 +72,7 @@ interface AuthEndpointsInterface
     /**
      * @throws RandomException
      */
-    public function requestOptions(): PublicKeyCredentialRequestOptions | WP_Error;
+    public function requestOptions(): PublicKeyCredentialRequestOptions|WP_Error;
 
     /**
      * @throws Exception

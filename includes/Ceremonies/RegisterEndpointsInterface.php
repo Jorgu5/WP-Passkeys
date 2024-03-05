@@ -36,8 +36,6 @@ interface RegisterEndpointsInterface
      */
     public function verifyPublicKeyCredentials(WP_REST_Request $request): WP_Error|WP_REST_Response;
 
-    public function getCreationOptions(): PublicKeyCredentialCreationOptions;
-
     public function getVerifiedResponse(): array;
 
     /**
@@ -61,6 +59,5 @@ interface RegisterEndpointsInterface
 
     public function getPkCredentialResponse(PublicKeyCredential $pkCredential);
 
-    public function creationOptions(string $userLogin): PublicKeyCredentialCreationOptions | WP_Error;
-
+    public function creationOptions(string $userLogin): PublicKeyCredentialCreationOptions|WP_Error;
 }

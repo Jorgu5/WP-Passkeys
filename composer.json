@@ -46,6 +46,7 @@
     "ext-intl": "*",
     "alleyinteractive/composer-wordpress-autoloader": "^1.0",
     "league/container": "^4.2",
+    "voku/simple_html_dom": "^4.8",
     "web-auth/webauthn-lib": "^4.7"
   }
 }
