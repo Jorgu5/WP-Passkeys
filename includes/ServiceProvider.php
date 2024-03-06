@@ -84,7 +84,10 @@ class ServiceProvider extends AbstractServiceProvider
         $container->add(CredentialHelperInterface::class, CredentialHelper::class)
                   ->addArguments([
                       SessionHandlerInterface::class,
+                      Utilities::class,
                   ]);
+        $container->add(CredentialEntityInterface::class, CredentialEntity::class)
+                  ->addArgument(Utilities::class);
         $container->add(PublicKeyCredentialParameters::class)
                   ->addArguments([
                       AlgorithmManagerInterface::class,
@@ -95,7 +98,7 @@ class ServiceProvider extends AbstractServiceProvider
         $container->add(Utilities::class);
         $container->add(CredentialEntityInterface::class, CredentialEntity::class);
         $container->add(CredentialEndpointsInterface::class, CredentialEndpoints::class)
-                  ->addArgument(SessionHandlerInterface::class);
+                  ->addArguments([SessionHandlerInterface::class, Utilities::class]);
         $container->add(PublicKeyCredentialParametersFactory::class, PublicKeyCredentialParametersFactory::class);
 
 

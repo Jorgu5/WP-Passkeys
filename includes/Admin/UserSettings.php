@@ -41,19 +41,46 @@ class UserSettings
     {
         // Always show the table
         echo '<table id="user-passkeys" class="wp-list-table widefat fixed striped table-view-list posts">
-            <thead>
-                <tr>
-                    <th>' . __('Public Credential Source ID', 'wp-passkeys') . '</th>
-                    <th>' . __('Actions', 'wp-passkeys') . '</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr>
-                    <td id="pk_credential_id">' . ($this->pkCredentialId ?? 'N/A') . '</td>
-                    <td>' . $this->renderButtons() . '</td> 
-                </tr>
-            </tbody>
-          </table>';
+        <thead>
+            <tr>
+                <th>' . __('Public Credential Source ID', 'wp-passkeys') . '</th>
+                <th>' . __('Registration Date', 'wp-passkeys') . '</th>
+                <th>' . __('Registration OS', 'wp-passkeys') . '</th>
+                <th>' . __('Last Used At', 'wp-passkeys') . '</th>
+                <th>' . __('Last Used OS', 'wp-passkeys') . '</th>
+                <th>' . __('Actions', 'wp-passkeys') . '</th>
+            </tr>
+        </thead>
+        <tbody>';
+
+        // Assuming $this->pkCredentialId is available and valid
+        $registrationDate = $this->credentialHelper->getDataByCredentialId(
+            $this->pkCredentialId,
+            'created_at'
+        ) ?: 'N/A';
+        $registrationOS   = $this->credentialHelper->getDataByCredentialId(
+            $this->pkCredentialId,
+            'created_os'
+        ) ?: 'N/A';
+        $lastUsedAt       = $this->credentialHelper->getDataByCredentialId(
+            $this->pkCredentialId,
+            'last_used_at'
+        ) ?: 'N/A';
+        $lastUsedOS       = $this->credentialHelper->getDataByCredentialId(
+            $this->pkCredentialId,
+            'last_used_os'
+        ) ?: 'N/A';
+
+        echo "<tr>
+            <td id='pk_credential_id'>{$this->pkCredentialId}</td>
+            <td>{$registrationDate}</td>
+            <td>{$registrationOS}</td>
+            <td>{$lastUsedAt}</td>
+            <td>{$lastUsedOS}</td>
+            <td>" . $this->renderButtons() . "</td> 
+          </tr>
+        </tbody>
+      </table>";
     }
 
     private function renderButtons(): string
@@ -64,7 +91,7 @@ class UserSettings
                     'Remove passkey',
                     'wp-passkeys'
                 ),
-                'button-primary passkeys-login__button--remove'
+                'passkeys-login__button--remove'
             );
         }
 
@@ -77,7 +104,10 @@ class UserSettings
     private function renderButton(string $label, string $extraClass): string
     {
         return sprintf(
-            '<button type="button" class="button passkeys-login__button %s">%s</button>',
+            '<button 
+style="color: #f00; border: none; padding: 0;"
+type="button" 
+class="button passkeys-login__button %s">%s</button>',
             $extraClass,
             $label
         );

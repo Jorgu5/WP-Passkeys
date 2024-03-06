@@ -65,7 +65,7 @@ class RegisterEndpoints implements RegisterEndpointsInterface
                 $publicKeyCredentialCreationOptions
             );
         } catch (JsonException $e) {
-            Utilities::handleException($e, 500);
+            $this->utilities->handleException($e, 500);
         }
 
         return new WP_REST_Response($publicKeyCredentialCreationOptions, 200);
@@ -130,7 +130,7 @@ class RegisterEndpoints implements RegisterEndpointsInterface
             );
 
             if (is_wp_error($userId)) {
-                return Utilities::handleWpError($userId);
+                return $this->utilities->handleWpError($userId);
             }
 
             $this->credentialHelper->saveCredentialSource($pkKeyCredentials);
@@ -146,16 +146,24 @@ class RegisterEndpoints implements RegisterEndpointsInterface
                 'data'    => [
                     'redirectUrl'      => $this->utilities->getRedirectUrl(),
                     'pk_credential_id' => $pkCredential->id,
+                    'created_at'       => $this->credentialHelper->getDataByCredentialId(
+                        $pkCredential->id,
+                        'created_at'
+                    ),
+                    'created_os'       => $this->credentialHelper->getDataByCredentialId(
+                        $pkCredential->id,
+                        'created_os'
+                    ),
                 ],
             ];
 
             return new WP_REST_Response($this->response, 200);
         } catch (JsonException | InvalidCredentialsException | InsertUserException $e) {
-            $response = Utilities::handleException($e, $e->getCode());
+            $response = $this->utilities->handleException($e, $e->getCode());
         } catch (InvalidArgument $e) {
-            $response = Utilities::handleException($e, 'Invalid Argument');
+            $response = $this->utilities->handleException($e, 'Invalid Argument');
         } catch (Throwable $e) {
-            $response = Utilities::handleException($e);
+            $response = $this->utilities->handleException($e);
         }
 
         return $response;

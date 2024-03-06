@@ -8,11 +8,16 @@ use WpPasskeys\Utilities;
 
 class CredentialEntity implements CredentialEntityInterface
 {
+    public function __construct(
+        public readonly Utilities $utilities
+    ) {
+    }
+
     public function createRpEntity(): PublicKeyCredentialRpEntity
     {
         return PublicKeyCredentialRpEntity::create(
             get_bloginfo('name'),
-            Utilities::getHostname(),
+            $this->utilities->getHostname(),
             null
         );
     }
@@ -35,13 +40,12 @@ class CredentialEntity implements CredentialEntityInterface
     public function generateBinaryId(): string
     {
         $encodedValue = '';
-        $uuid = wp_generate_uuid4();
-        $binaryUuId = hex2bin(str_replace('-', '', $uuid));
-        if($binaryUuId !== false ) {
+        $uuid         = wp_generate_uuid4();
+        $binaryUuId   = hex2bin(str_replace('-', '', $uuid));
+        if ($binaryUuId !== false) {
             $encodedValue = base64_encode($binaryUuId);
         }
 
         return $encodedValue;
     }
-
 }

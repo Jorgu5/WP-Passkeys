@@ -11,7 +11,8 @@ use WpPasskeys\Utilities;
 class CredentialEndpoints implements CredentialEndpointsInterface
 {
     public function __construct(
-        public readonly SessionHandlerInterface $sessionHandler
+        public readonly SessionHandlerInterface $sessionHandler,
+        public readonly Utilities $utilities
     ) {
     }
 
@@ -85,7 +86,7 @@ class CredentialEndpoints implements CredentialEndpointsInterface
         }
 
         if (is_wp_error($response)) {
-            Utilities::handleWpError($response);
+            $this->utilities->handleWpError($response);
         }
 
         return new WP_REST_Response(

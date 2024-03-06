@@ -69,7 +69,7 @@ class AuthEndpoints implements AuthEndpointsInterface
             $publicKeyCredentialRequestOptions->allowCredentials = [];
             $publicKeyCredentialRequestOptions->userVerification =
                 $publicKeyCredentialRequestOptions::USER_VERIFICATION_REQUIREMENT_REQUIRED;
-            $publicKeyCredentialRequestOptions->rpId             = Utilities::getHostname();
+            $publicKeyCredentialRequestOptions->rpId             = $this->utilities->getHostname();
 
             return $publicKeyCredentialRequestOptions;
         } catch (Exception $e) {
@@ -97,17 +97,23 @@ class AuthEndpoints implements AuthEndpointsInterface
                 'code'    => 200,
                 'message' => 'Successfully verified the credential',
                 'data'    => [
-                    'redirectUrl' => $this->utilities->getRedirectUrl(),
+                    'redirectUrl'  => $this->utilities->getRedirectUrl(),
+                    'last_used_os' => $this->utilities->getDeviceOS(),
+                    'last_used_at' => date('Y-m-d H:i:s'),
                 ],
             ];
 
+            $this->credentialHelper->updateCredentialSourceData(
+                $request->get_param('id')
+            );
+
             $response = new WP_REST_Response($this->verifiedResponse, 200);
         } catch (JsonException | InvalidCredentialsException $e) {
-            $response = Utilities::handleException($e, $e->getCode());
+            $response = $this->utilities->handleException($e, $e->getCode());
         } catch (InvalidArgument $e) {
-            $response = Utilities::handleException($e, 'Invalid Argument');
+            $response = $this->utilities->handleException($e, 'Invalid Argument');
         } catch (Throwable $e) {
-            $response = Utilities::handleException($e);
+            $response = $this->utilities->handleException($e);
         }
 
         return $response;
@@ -144,7 +150,7 @@ class AuthEndpoints implements AuthEndpointsInterface
             $this->getRawId($request),
             $authenticatorAssertionResponse,
             $this->sessionHandler->get(self::SESSION_KEY),
-            $this->utilities::getHostname(),
+            $this->utilities->getHostname(),
             $authenticatorAssertionResponse->userHandle,
             $this->utilities->isLocalhost() ? ["localhost"] : [],
         );

@@ -21,12 +21,16 @@ require_once ABSPATH . 'wp-admin/includes/upgrade.php';
 
 // Define constants.
 define('WP_PASSKEYS_PLUGIN_PATH', plugin_dir_path(__FILE__));
+
+register_activation_hook(__FILE__, [PasskeysPlugin::class, 'activate']);
+
 const WP_PASSKEYS_API_NAMESPACE = 'wp-passkeys';
 
 require_once WP_PASSKEYS_PLUGIN_PATH . 'vendor/autoload.php';
 
 try {
-    PasskeysPlugin::make();
+    $plugin = PasskeysPlugin::getInstance();
+    $plugin->run();
 } catch (NotFoundExceptionInterface | ContainerExceptionInterface $e) {
     echo $e->getMessage();
 }

@@ -10,6 +10,8 @@
 
 namespace WpPasskeys\Credentials;
 
+use DateTime;
+use InvalidArgumentException;
 use JsonException;
 use Webauthn\AttestationStatement\AttestationStatementSupportManager;
 use Webauthn\AuthenticationExtensions\ExtensionOutputCheckerHandler;
@@ -29,10 +31,14 @@ use WpPasskeys\Utilities;
 class CredentialHelper implements CredentialHelperInterface, PublicKeyCredentialSourceRepository
 {
     public readonly PublicKeyCredentialCreationOptions $publicKeyCredentialCreationOptions;
+    private $wpdb;
 
     public function __construct(
         private readonly SessionHandlerInterface $sessionHandler,
+        private readonly Utilities $utilities
     ) {
+        global $wpdb;
+        $this->wpdb = $wpdb;
         add_action('delete_user', [$this, 'removeUserCredentials']);
     }
 
@@ -81,10 +87,8 @@ class CredentialHelper implements CredentialHelperInterface, PublicKeyCredential
 
     public function findOneByCredentialId(string $publicKeyCredentialId): ?PublicKeyCredentialSource
     {
-        global $wpdb;
-
-        $credentialSource = $wpdb->get_var(
-            $wpdb->prepare(
+        $credentialSource = $this->wpdb->get_var(
+            $this->wpdb->prepare(
                 "SELECT credential_source FROM wp_pk_credential_sources WHERE pk_credential_id = %s",
                 $publicKeyCredentialId
             )
@@ -100,22 +104,57 @@ class CredentialHelper implements CredentialHelperInterface, PublicKeyCredential
 
     public function saveCredentialSource(PublicKeyCredentialSource $publicKeyCredentialSource): void
     {
-        global $wpdb;
-
-        $safeEncodedPkId = Utilities::safeEncode($publicKeyCredentialSource->publicKeyCredentialId);
+        $safeEncodedPkId = $this->utilities->safeEncode($publicKeyCredentialSource->publicKeyCredentialId);
 
         if ($this->findOneByCredentialId($safeEncodedPkId)) {
             return;
         }
+
+        $createdAt = date('Y-m-d H:i:s');
+        $createdOs = $this->utilities->getDeviceOS();
+
         // Insert only the credential source into the custom table wp_pk_credential_sources
-        $wpdb->insert('wp_pk_credential_sources', [
+        $this->wpdb->insert('wp_pk_credential_sources', [
             'pk_credential_id'  => $safeEncodedPkId,
             'credential_source' => json_encode($publicKeyCredentialSource, JSON_THROW_ON_ERROR),
+            'created_at'        => $createdAt,
+            'created_os'        => $createdOs,
+            'last_used_at'      => $createdAt,
+            'last_used_os'      => $createdOs,
         ], ['%s']);
 
         // Check if the insert was successful, throw exception otherwise
-        if (! $wpdb->insert_id) {
+        if (! $this->wpdb->insert_id) {
             throw new InvalidCredentialsException('Failed to save credential source.');
+        }
+    }
+
+    /**
+     * Update the usage information for a given credential ID.
+     *
+     * @param string $credentialId The credential ID.
+     *
+     * @throws InvalidCredentialsException If the update fails or the credential ID does not exist.
+     */
+    public function updateCredentialSourceData(string $credentialId): void
+    {
+        $safeEncodedPkId = $this->utilities->safeEncode($credentialId);
+
+        if ($this->findOneByCredentialId($safeEncodedPkId)) {
+            return;
+        }
+
+        $updateResult = $this->wpdb->update(
+            'wp_pk_credential_sources',
+            [
+                'last_used_at' => time(),
+                'last_used_os' => $this->utilities->getDeviceOS(),
+            ],
+            ['pk_credential_id' => $safeEncodedPkId]
+        );
+
+        if ($updateResult === false) {
+            throw new InvalidCredentialsException('Failed to update credential usage.');
         }
     }
 
@@ -128,8 +167,6 @@ class CredentialHelper implements CredentialHelperInterface, PublicKeyCredential
      */
     public function removeUserCredentials(int $userId): bool|WP_Error
     {
-        global $wpdb;
-
         $pkCredentialId = get_user_meta($userId, 'pk_credential_id', true);
 
         if (! $pkCredentialId) {
@@ -140,7 +177,9 @@ class CredentialHelper implements CredentialHelperInterface, PublicKeyCredential
             );
         }
 
-        if ($wpdb->delete('wp_pk_credential_sources', ['pk_credential_id' => $pkCredentialId], ['%s']) === false) {
+        if (
+            $this->wpdb->delete('wp_pk_credential_sources', ['pk_credential_id' => $pkCredentialId], ['%s']) === false
+        ) {
             return new WP_Error(
                 500,
                 'Failed to delete credentials for this user.',
@@ -166,10 +205,8 @@ class CredentialHelper implements CredentialHelperInterface, PublicKeyCredential
 
     public function getUserByCredentialId(string $pkCredentialId): int|WP_Error
     {
-        global $wpdb;
-
-        $user = $wpdb->get_var(
-            $wpdb->prepare(
+        $user = $this->wpdb->get_var(
+            $this->wpdb->prepare(
                 "SELECT user_id FROM wp_usermeta WHERE meta_key = 'pk_credential_id' AND meta_value = %s",
                 $pkCredentialId
             )
@@ -210,8 +247,8 @@ class CredentialHelper implements CredentialHelperInterface, PublicKeyCredential
         return $authenticatorAttestationResponseValidator->check(
             $authenticatorAttestationResponse,
             $publicKeyCredentialCreationOptions,
-            Utilities::getHostname(),
-            ['localhost']
+            $this->utilities->getHostname(),
+            $this->utilities->isLocalhost() ? ["localhost"] : []
         );
     }
 
@@ -263,7 +300,7 @@ class CredentialHelper implements CredentialHelperInterface, PublicKeyCredential
             'user_login' => get_user_by('id', $userId)->user_login,
             'ID'         => $userId,
         ];
-        $encodedPublicKeyCredentialId = Utilities::safeEncode($publicKeyCredentialId);
+        $encodedPublicKeyCredentialId = $this->utilities->safeEncode($publicKeyCredentialId);
         $userData['meta_input']       = ['pk_credential_id' => $encodedPublicKeyCredentialId];
 
         return wp_insert_user($userData);
@@ -271,7 +308,7 @@ class CredentialHelper implements CredentialHelperInterface, PublicKeyCredential
 
     public function addAccountWithPkCredentialId(array $userData, string $publicKeyCredentialId): int|WP_Error
     {
-        $encodedPublicKeyCredentialId = Utilities::safeEncode($publicKeyCredentialId);
+        $encodedPublicKeyCredentialId = $this->utilities->safeEncode($publicKeyCredentialId);
         $userData['meta_input']       = ['pk_credential_id' => $encodedPublicKeyCredentialId];
 
         return wp_insert_user($userData);
@@ -318,5 +355,40 @@ class CredentialHelper implements CredentialHelperInterface, PublicKeyCredential
         }
 
         return $userData['user_login'];
+    }
+
+    public function getDataByCredentialId(string $credentialId, string $columnName): ?string
+    {
+        $allowedColumns = [
+            'created_at',
+            'created_os',
+            'last_used_at',
+            'last_used_os',
+        ];
+        if (! in_array($columnName, $allowedColumns, true)) {
+            throw new InvalidArgumentException("Invalid column name: {$columnName}");
+        }
+
+        $row = $this->wpdb->get_row(
+            $this->wpdb->prepare(
+                "SELECT {$columnName} FROM wp_pk_credential_sources WHERE pk_credential_id = %s",
+                $credentialId
+            )
+        );
+
+        // Check if $row is not null and the specified column exists in the result
+        if ($row !== null && property_exists($row, $columnName)) {
+            // Check if the column is a timestamp and format it
+            if (in_array($row->$columnName !== null && $columnName, ['created_at', 'last_used_at'], true)) {
+                $date = DateTime::createFromFormat('Y-m-d H:i:s', $row->$columnName);
+                if ($date) {
+                    return $date->format('F jS, Y, \a\t H:i:s');
+                }
+            }
+
+            return $row->$columnName;
+        }
+
+        return null; // Return null if the row is null or the column does not exist
     }
 }

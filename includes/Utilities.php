@@ -6,6 +6,7 @@
 
 namespace WpPasskeys;
 
+use JsonException;
 use Throwable;
 use WP_Error;
 use WP_REST_Response;
@@ -13,25 +14,13 @@ use WP_User;
 
 class Utilities
 {
-    public static function safeEncode(string $data): string
-    {
-        return rtrim(strtr(base64_encode($data), '+/', '-_'), '=');
-    }
-
-    public static function getHostname(): string
-    {
-        $site_url = get_site_url();
-
-        return parse_url($site_url, PHP_URL_HOST);
-    }
-
     /**
      * @param Throwable $exception
      * @param int|string|null $errorCode
      *
      * @return WP_REST_Response
      */
-    public static function handleException(Throwable $exception, int|string|null $errorCode = 500): WP_REST_Response
+    public function handleException(Throwable $exception, int|string|null $errorCode = 500): WP_REST_Response
     {
         $errorData = [
             'code'    => $errorCode,
@@ -50,7 +39,7 @@ class Utilities
         return new WP_REST_Response($errorData, $errorCode);
     }
 
-    public static function logger($error): void
+    public function logger($error): void
     {
         if ($error instanceof Throwable) {
             $logMessage = sprintf(
@@ -81,7 +70,7 @@ class Utilities
      * @return WP_REST_Response
      */
 
-    public static function handleWpError(WP_Error $error): WP_REST_Response
+    public function handleWpError(WP_Error $error): WP_REST_Response
     {
         $errorData = [
             'code'    => $error->get_error_code(),
@@ -92,6 +81,18 @@ class Utilities
         self::logger($error);
 
         return new WP_REST_Response($errorData, $error->get_error_code());
+    }
+
+    public function safeEncode(string $data): string
+    {
+        return rtrim(strtr(base64_encode($data), '+/', '-_'), '=');
+    }
+
+    public function getHostname(): string
+    {
+        $site_url = get_site_url();
+
+        return parse_url($site_url, PHP_URL_HOST);
     }
 
     public function setAuthCookie(string $username = null, int $userId = null): void
@@ -148,5 +149,18 @@ class Utilities
         }
 
         return false;
+    }
+
+    public function getCurrentFormattedDate(): string
+    {
+        return date('F jS, Y, \a\t H:i:s');
+    }
+
+    public function getDeviceOS(): string
+    {
+        $os = $_SERVER['HTTP_SEC_CH_UA_PLATFORM'] ?? '';
+        $os = stripslashes($os);
+
+        return trim($os, '"');
     }
 }
