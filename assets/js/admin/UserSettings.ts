@@ -1,15 +1,19 @@
 import Registration from '../registration/Registration';
-import { VerificationResponse, contextType } from '../WebauthnTypes';
+import { ApiResponse, contextType } from '../WebauthnTypes';
 import Utilities from '../Utilities';
 
 export default class UserSettings {
+	private readonly passkeysContainer = document.querySelector<HTMLDivElement>(
+		'.passkeys-cards-container',
+	);
 	private readonly registerForm =
 		document.querySelector<HTMLFormElement>( '#registerform' );
 	private readonly passkeysRegisterButton =
-		document.querySelector<HTMLInputElement>( '.passkeys-login__button--add' );
+		document.querySelector<HTMLButtonElement>( '.passkeys__button--add' );
 	private readonly passkeysRemoveButton =
-		document.querySelector<HTMLInputElement>( '.passkeys-login__button--remove' );
-	private readonly passkeyRow = document.querySelector( '#pk_credential_id' );
+		document.querySelectorAll<HTMLButtonElement>(
+			'.passkey-card__button--remove',
+		);
 	private readonly context: contextType;
 
 	constructor() {
@@ -21,45 +25,51 @@ export default class UserSettings {
 		userSettings.attachEventListeners();
 	}
 
-	async startRegistration(): Promise<VerificationResponse> {
+	async startRegistration(): Promise<ApiResponse> {
 		const regHandler = new Registration();
 		return await regHandler.start();
 	}
 
-	async removePasskey(): Promise<void> {
+	/**
+	 * Asynchronously removes a passkey for a user.
+	 * @param {string} pkId - The ID of the passkey to remove.
+	 * @return {Promise<void>} - A promise that resolves when the operation is complete.
+	 */
+	async removePasskey( pkId: string ): Promise<ApiResponse> {
 		try {
+			// Prepare headers with optional nonce for security
 			const headers: HeadersInit = {};
-
 			if ( this.context.nonce ) {
 				headers[ 'X-WP-Nonce' ] = this.context.nonce;
 			}
 
+			// Perform the DELETE request to the specified endpoint with the pkId
 			const response: Response = await fetch(
-				this.context.restEndpoints.user + '/remove',
+				`${ this.context.restEndpoints.user }/remove/${ pkId }`,
 				{
 					method: 'DELETE',
 					headers,
 				},
 			);
+
+			// Check for a successful response
 			if ( ! response.ok ) {
+				const errorMessage = `Server returned ${ response.status }: ${ response.statusText }`;
+				console.error( errorMessage );
 				Utilities.setNotification(
-					`Server returned ${ response.status }: ${ response.statusText }`,
+					errorMessage,
 					'Error',
           this.registerForm as HTMLElement,
           'admin',
 				);
+				return; // Early exit to avoid further processing
 			}
-
-			Utilities.setNotification(
-				'Passkey removed sucessfully',
-				'Success',
-        this.registerForm as HTMLElement,
-        'admin',
-			);
 			return await response.json();
-		} catch ( error: any ) {
+		} catch ( error ) {
+			const fetchErrorMessage = `There was a problem with the fetch operation: ${ error }`;
+			console.error( fetchErrorMessage );
 			Utilities.setNotification(
-				`There was a problem with the fetch operation: ${ error }`,
+				fetchErrorMessage,
 				'Error',
         this.registerForm as HTMLElement,
         'admin',
@@ -70,23 +80,45 @@ export default class UserSettings {
 
 	public attachEventListeners(): void {
 		if ( this.passkeysRegisterButton ) {
-			this.passkeysRegisterButton.addEventListener( 'click', () => {
+			this.passkeysRegisterButton.addEventListener( 'click', ( event ) => {
 				this.startRegistration().then( ( r ) => {
-					if ( this.passkeyRow ) {
-						this.passkeyRow.innerHTML = <string>r.data?.pk_credential_id;
+					this.passkeysContainer?.insertAdjacentHTML(
+						'beforeend',
+						r.data?.cardHtml || '',
+					);
+					if ( event.target instanceof HTMLButtonElement ) {
+						event.target.disabled = true;
 					}
 				} );
 			} );
 		}
 
-		if ( this.passkeysRemoveButton ) {
-			this.passkeysRemoveButton.addEventListener( 'click', () => {
-				this.removePasskey().then( () => {
-					if ( this.passkeyRow ) {
-						this.passkeyRow.innerHTML = '';
+		this.passkeysRemoveButton.forEach( ( button ) => {
+			button.addEventListener( 'click', ( event ) => {
+				const pkId = button.value;
+				this.removePasskey( pkId ).then( ( r ) => {
+					if ( r.code !== 200 ) {
+						Utilities.setNotification(
+							r.message,
+							'Error',
+              this.registerForm as HTMLElement,
+              'admin',
+						);
+
+						return;
+					}
+
+					if ( event.target instanceof HTMLButtonElement ) {
+						event.target.closest( '.passkey-card' )?.remove();
+						Utilities.setNotification(
+							r.message,
+							'Success',
+              this.registerForm as HTMLElement,
+              'admin',
+						);
 					}
 				} );
 			} );
-		}
+		} );
 	}
 }

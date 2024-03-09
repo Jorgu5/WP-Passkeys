@@ -1,0 +1,82 @@
+.passkeys-info {
+  align-items: center;
+  background-color: #00CECD10;
+  display: flex;
+  gap: 20px;
+  padding: 20px 0;
+
+  &__collage {
+	margin: 0 10px;
+  }
+}
+
+.passkeys-cards-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  margin: 20px 0;
+  max-width: 100%;
+
+  svg {
+	max-width: 100%;
+  }
+
+  .passkey-card {
+	&__button--remove {
+	  border-color: #f00;
+	  color: #f00;
+	}
+
+	&__details {
+	  h4 {
+		display: flex;
+	  }
+
+	  &_lock-icon {
+		margin-left: auto;
+	  }
+
+	  &_device-icon {
+		display: inline-block;
+		margin-right: 10px;
+	  }
+	}
+
+	&__detail {
+	  display: flex;
+	}
+
+	&__wrapper {
+	  background: #fff;
+	  border-radius: 10px;
+	  box-shadow: 0 2px 5px 0 rgb(0 0 0 / 30%);
+	  max-width: 280px;
+	  padding: 4px;
+	}
+
+	&__header,
+	&__footer {
+	  background: #FAFAFA;
+	  padding: 20px 10px;
+	  text-align: center;
+	}
+
+	&__details {
+	  margin: 10px;
+	}
+
+	&__icon {
+	  display: block;
+	  height: 28px;
+	  margin: 0 auto;
+	  width: 28px;
+	}
+
+	&__meta {
+	  color: #8d8d8d;
+	  font-size: 12px;
+	  margin: 5px 0;
+	  text-transform: lowercase;
+	}
+  }
+}

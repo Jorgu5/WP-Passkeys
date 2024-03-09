@@ -2,24 +2,24 @@
 
 namespace WpPasskeys\Admin;
 
-use WP_Session_Tokens;
 use WpPasskeys\Credentials\CredentialHelper;
-use WpPasskeys\Exceptions\InvalidCredentialsException;
 
 class UserSettings
 {
-    private ?string $pkCredentialId;
+    private ?array $pkCredentialIds;
 
     public function __construct(
-        private readonly CredentialHelper $credentialHelper
+        private readonly CredentialHelper $credentialHelper,
+        private readonly UserPasskeysCardRender $cardRender,
+        private readonly PasskeysInfoRender $passkeysInfoRender
     ) {
-        $this->pkCredentialId = '';
+        $this->pkCredentialIds = [];
 
-        add_action('show_user_profile', [$this, 'displayUserPasskeySettings'], 1);
-        add_action('edit_user_profile', [$this, 'displayAdminPasskeySettings'], 1);
+        add_action('show_user_profile', [$this, 'displayUserPasskeySettings'], 40);
+        add_action('edit_user_profile', [$this, 'displayAdminPasskeySettings'], 40);
         add_action('admin_notices', [$this, 'showGeneralAdminNotice']);
         add_action('admin_notices', [$this, 'removeUserPasskeysNotice']);
-        add_action('init', [$this, 'getPkCredentialId']);
+        add_action('admin_init', [$this, 'getPkCredentialIds']);
         add_action('edit_user_profile_update', [$this, 'handleClearUserPasskeys']);
     }
 
@@ -31,86 +31,15 @@ class UserSettings
         if (! current_user_can('read')) {
             return;
         }
+
+        $userPasskeySettings = $this->pkCredentialIds
+            ? $this->cardRender->render($this->pkCredentialIds)
+            : $this->passkeysInfoRender->renderInfo();
+
         echo '<div class="user-passkeys-settings" id="registerform">
-                <h2 class="user-passkeys-setting__title">' . __('Your passkeys', 'wp-passkeys') . '</h2>';
-        $this->renderPasskeysList();
-        echo '</div>';
-    }
-
-    private function renderPasskeysList(): void
-    {
-        // Always show the table
-        echo '<table id="user-passkeys" class="wp-list-table widefat fixed striped table-view-list posts">
-        <thead>
-            <tr>
-                <th>' . __('Public Credential Source ID', 'wp-passkeys') . '</th>
-                <th>' . __('Registration Date', 'wp-passkeys') . '</th>
-                <th>' . __('Registration OS', 'wp-passkeys') . '</th>
-                <th>' . __('Last Used At', 'wp-passkeys') . '</th>
-                <th>' . __('Last Used OS', 'wp-passkeys') . '</th>
-                <th>' . __('Actions', 'wp-passkeys') . '</th>
-            </tr>
-        </thead>
-        <tbody>';
-
-        // Assuming $this->pkCredentialId is available and valid
-        $registrationDate = $this->credentialHelper->getDataByCredentialId(
-            $this->pkCredentialId,
-            'created_at'
-        ) ?: 'N/A';
-        $registrationOS   = $this->credentialHelper->getDataByCredentialId(
-            $this->pkCredentialId,
-            'created_os'
-        ) ?: 'N/A';
-        $lastUsedAt       = $this->credentialHelper->getDataByCredentialId(
-            $this->pkCredentialId,
-            'last_used_at'
-        ) ?: 'N/A';
-        $lastUsedOS       = $this->credentialHelper->getDataByCredentialId(
-            $this->pkCredentialId,
-            'last_used_os'
-        ) ?: 'N/A';
-
-        echo "<tr>
-            <td id='pk_credential_id'>{$this->pkCredentialId}</td>
-            <td>{$registrationDate}</td>
-            <td>{$registrationOS}</td>
-            <td>{$lastUsedAt}</td>
-            <td>{$lastUsedOS}</td>
-            <td>" . $this->renderButtons() . "</td> 
-          </tr>
-        </tbody>
-      </table>";
-    }
-
-    private function renderButtons(): string
-    {
-        if ($this->pkCredentialId) {
-            return $this->renderButton(
-                __(
-                    'Remove passkey',
-                    'wp-passkeys'
-                ),
-                'passkeys-login__button--remove'
-            );
-        }
-
-        return $this->renderButton(__('Add passkey', 'wp-passkeys'), 'button-primary passkeys-login__button--add');
-    }
-
-    /**
-     * General method to render buttons
-     */
-    private function renderButton(string $label, string $extraClass): string
-    {
-        return sprintf(
-            '<button 
-style="color: #f00; border: none; padding: 0;"
-type="button" 
-class="button passkeys-login__button %s">%s</button>',
-            $extraClass,
-            $label
-        );
+                <h2 class="user-passkeys-setting__title">' . __('Account passkeys', 'wp-passkeys') . '</h2>' .
+             $userPasskeySettings
+             . '</div>';
     }
 
     public function displayAdminPasskeySettings(): void
@@ -130,15 +59,16 @@ class="button passkeys-login__button %s">%s</button>',
     }
 
 
-    public function getPkCredentialId(): void
+    public function getPkCredentialIds(): void
     {
-        $user_id              = get_current_user_id();
-        $this->pkCredentialId = get_user_meta($user_id, 'pk_credential_id', true);
+        $user_id               = get_current_user_id();
+        $this->pkCredentialIds = get_user_meta($user_id, 'pk_credential_id', true);
     }
+
 
     public function showGeneralAdminNotice(): void
     {
-        if (! $this->pkCredentialId && get_option('wppk_prompt_password_users') === 'on') {
+        if (! $this->pkCredentialIds && get_option('wppk_prompt_password_users') === 'on') {
             echo '<div style="display: flex; align-items: center;" class="notice notice-info is-dismissible">
                 <p>' . __(
                 'We now offer passkeys support, and it looks like you have not set up your keys yet.

@@ -20,18 +20,17 @@ use Webauthn\AuthenticatorAttestationResponseValidator;
 use Webauthn\Exception\InvalidDataException;
 use Webauthn\PublicKeyCredentialCreationOptions;
 use Webauthn\PublicKeyCredentialSource;
-use Webauthn\PublicKeyCredentialSourceRepository;
 use Webauthn\PublicKeyCredentialUserEntity;
 use WP_Error;
+use wpdb;
 use WpPasskeys\Exceptions\InvalidCredentialsException;
-use WpPasskeys\Exceptions\InsertUserException;
 use WpPasskeys\Exceptions\InvalidUserDataException;
 use WpPasskeys\Utilities;
 
-class CredentialHelper implements CredentialHelperInterface, PublicKeyCredentialSourceRepository
+class CredentialHelper implements CredentialHelperInterface
 {
     public readonly PublicKeyCredentialCreationOptions $publicKeyCredentialCreationOptions;
-    private $wpdb;
+    private wpdb $wpdb;
 
     public function __construct(
         private readonly SessionHandlerInterface $sessionHandler,
@@ -43,32 +42,40 @@ class CredentialHelper implements CredentialHelperInterface, PublicKeyCredential
     }
 
     /**
-     * @throws InvalidCredentialsException
-     * @throws InvalidUserDataException
+     * @param string $username
+     *
+     * @return array
      * @throws InvalidDataException
+     * @throws InvalidUserDataException
      * @throws JsonException
      */
-    public function findAllForUserEntity(PublicKeyCredentialUserEntity $publicKeyCredentialUserEntity): array
+    public function findAllForUserEntity(string $username): array
     {
-        $username                     = $publicKeyCredentialUserEntity->name;
-        $credentialSource             = $this->getUserPublicKeySources($username);
-        $credentialDescriptorsStore[] = $credentialSource?->getPublicKeyCredentialDescriptor();
+        $credentialSources = $this->getUserPublicKeySources($username);
+
+        $credentialDescriptorsStore = [];
+        foreach ($credentialSources as $credentialSource) {
+            $descriptor = $credentialSource->getPublicKeyCredentialDescriptor();
+            if ($descriptor !== null) {
+                $credentialDescriptorsStore[] = $descriptor;
+            }
+        }
 
         return $credentialDescriptorsStore;
     }
+
 
     /**
      * Retrieves public key credential sources for a specific user.
      *
      * @param string $username
      *
-     * @return PublicKeyCredentialSource|null An array of credential sources.
-     * @throws InvalidCredentialsException
+     * @return array An array of PublicKeyCredentialSource objects.
      * @throws InvalidDataException
      * @throws InvalidUserDataException
      * @throws JsonException
      */
-    public function getUserPublicKeySources(string $username): ?PublicKeyCredentialSource
+    public function getUserPublicKeySources(string $username): array
     {
         $user = get_user_by('login', $username);
 
@@ -76,13 +83,21 @@ class CredentialHelper implements CredentialHelperInterface, PublicKeyCredential
             throw new InvalidUserDataException('User not found.');
         }
 
-        $pkCredentialId = get_user_meta($user->ID, 'pk_credential_id', true);
+        $pkCredentialIds = get_user_meta($user->ID, 'pk_credential_id', true);
 
-        if (! $pkCredentialId) {
-            throw new InvalidCredentialsException('No credentials assigned to this user.');
+        if (empty($pkCredentialIds)) {
+            return [];
         }
 
-        return $this->findOneByCredentialId($pkCredentialId);
+        $publicKeyCredentialSources = [];
+        foreach ($pkCredentialIds as $pkCredentialId) {
+            $credentialSource = $this->findOneByCredentialId($pkCredentialId);
+            if ($credentialSource !== null) {
+                $publicKeyCredentialSources[] = $credentialSource;
+            }
+        }
+
+        return $publicKeyCredentialSources;
     }
 
     public function findOneByCredentialId(string $publicKeyCredentialId): ?PublicKeyCredentialSource
@@ -115,12 +130,12 @@ class CredentialHelper implements CredentialHelperInterface, PublicKeyCredential
 
         // Insert only the credential source into the custom table wp_pk_credential_sources
         $this->wpdb->insert('wp_pk_credential_sources', [
-            'pk_credential_id'  => $safeEncodedPkId,
+            'pk_credential_id' => $safeEncodedPkId,
             'credential_source' => json_encode($publicKeyCredentialSource, JSON_THROW_ON_ERROR),
-            'created_at'        => $createdAt,
-            'created_os'        => $createdOs,
-            'last_used_at'      => $createdAt,
-            'last_used_os'      => $createdOs,
+            'created_at' => $createdAt,
+            'created_os' => $createdOs,
+            'last_used_at' => $createdAt,
+            'last_used_os' => $createdOs,
         ], ['%s']);
 
         // Check if the insert was successful, throw exception otherwise
@@ -130,11 +145,9 @@ class CredentialHelper implements CredentialHelperInterface, PublicKeyCredential
     }
 
     /**
-     * Update the usage information for a given credential ID.
-     *
-     * @param string $credentialId The credential ID.
-     *
-     * @throws InvalidCredentialsException If the update fails or the credential ID does not exist.
+     * @throws InvalidDataException
+     * @throws InvalidCredentialsException
+     * @throws JsonException
      */
     public function updateCredentialSourceData(string $credentialId): void
     {
@@ -167,9 +180,9 @@ class CredentialHelper implements CredentialHelperInterface, PublicKeyCredential
      */
     public function removeUserCredentials(int $userId): bool|WP_Error
     {
-        $pkCredentialId = get_user_meta($userId, 'pk_credential_id', true);
+        $pkCredentialIds = get_user_meta($userId, 'pk_credential_id', true);
 
-        if (! $pkCredentialId) {
+        if (empty($pkCredentialIds)) {
             return new WP_Error(
                 404,
                 'No credentials found for this user.',
@@ -177,18 +190,40 @@ class CredentialHelper implements CredentialHelperInterface, PublicKeyCredential
             );
         }
 
-        if (
-            $this->wpdb->delete('wp_pk_credential_sources', ['pk_credential_id' => $pkCredentialId], ['%s']) === false
-        ) {
+        // Ensure $pkCredentialIds is always treated as an array
+        $pkCredentialIds = is_array($pkCredentialIds) ? $pkCredentialIds : [$pkCredentialIds];
+        $errors          = [];
+
+        foreach ($pkCredentialIds as $credentialId) {
+            // Attempt to delete each credential ID from the custom table
+            if (
+                $this->wpdb->delete('wp_pk_credential_sources', ['pk_credential_id' => $credentialId], ['%s']) === false
+            ) {
+                $errors[] = $credentialId; // Track credential IDs that failed to be deleted
+            }
+        }
+
+        // Regardless of custom table deletion success, remove the meta key to clean up
+        if (! delete_user_meta($userId, 'pk_credential_id')) {
             return new WP_Error(
                 500,
-                'Failed to delete credentials for this user.',
-                ['status' => 'delete_failed']
+                'Failed to delete user meta for credentials.',
+                ['status' => 'meta_delete_failed']
             );
         }
 
-        return delete_user_meta($userId, 'pk_credential_id');
+        // If there were errors deleting any credentials from the custom table, report back
+        if (! empty($errors)) {
+            return new WP_Error(
+                500,
+                'Failed to delete some or all credentials from the custom table for this user.',
+                ['status' => 'delete_failed', 'failed_ids' => $errors]
+            );
+        }
+
+        return true;
     }
+
 
     /**
      * @throws JsonException
@@ -205,24 +240,23 @@ class CredentialHelper implements CredentialHelperInterface, PublicKeyCredential
 
     public function getUserByCredentialId(string $pkCredentialId): int|WP_Error
     {
-        $user = $this->wpdb->get_var(
-            $this->wpdb->prepare(
-                "SELECT user_id FROM wp_usermeta WHERE meta_key = 'pk_credential_id' AND meta_value = %s",
-                $pkCredentialId
-            )
+        $users = get_users([
+            'meta_key' => 'pk_credential_id',
+            'fields'   => 'ids',
+        ]);
+
+        foreach ($users as $userId) {
+            $credentialIds = get_user_meta($userId, 'pk_credential_id', true);
+            if (in_array($pkCredentialId, (array)$credentialIds, true)) {
+                return (int)$userId;
+            }
+        }
+
+        return new WP_Error(
+            204,
+            'No user found with this credential ID.',
+            ['status' => 'no_user_found']
         );
-
-        if (! $user) {
-            throw new InvalidCredentialsException(
-                'User with this credential ID does not exist in the database.',
-                204
-            );
-        }
-        if (! is_numeric($user)) {
-            throw new InvalidCredentialsException('Unexpected data type for user');
-        }
-
-        return (int)$user;
     }
 
     public function getPublicKeyCredentials(
@@ -296,20 +330,28 @@ class CredentialHelper implements CredentialHelperInterface, PublicKeyCredential
 
     public function updateExistingUserWithPkCredentialId(int $userId, string $publicKeyCredentialId): WP_Error|int
     {
-        $userData                     = [
-            'user_login' => get_user_by('id', $userId)->user_login,
-            'ID'         => $userId,
-        ];
-        $encodedPublicKeyCredentialId = $this->utilities->safeEncode($publicKeyCredentialId);
-        $userData['meta_input']       = ['pk_credential_id' => $encodedPublicKeyCredentialId];
+        $existingIds = get_user_meta($userId, 'pk_credential_id', true);
+        if (! is_array($existingIds)) {
+            $existingIds = [];
+        }
 
-        return wp_insert_user($userData);
+        $existingIds[] = $publicKeyCredentialId;
+
+        $result = update_user_meta($userId, 'pk_credential_id', $existingIds);
+
+        if (false === $result) {
+            return new WP_Error(
+                'update_error',
+                __('Failed to update user with new pk_credential_id.', 'wp-passkeys')
+            );
+        }
+
+        return $userId;
     }
 
     public function addAccountWithPkCredentialId(array $userData, string $publicKeyCredentialId): int|WP_Error
     {
-        $encodedPublicKeyCredentialId = $this->utilities->safeEncode($publicKeyCredentialId);
-        $userData['meta_input']       = ['pk_credential_id' => $encodedPublicKeyCredentialId];
+        $userData['meta_input'] = ['pk_credential_id' => $publicKeyCredentialId];
 
         return wp_insert_user($userData);
     }
@@ -319,6 +361,7 @@ class CredentialHelper implements CredentialHelperInterface, PublicKeyCredential
      */
     private function getUserData(): array
     {
+        $userData = '';
         if ($this->sessionHandler->has('user_data')) {
             $userData = $this->sessionHandler->get('user_data');
         }
@@ -376,10 +419,8 @@ class CredentialHelper implements CredentialHelperInterface, PublicKeyCredential
             )
         );
 
-        // Check if $row is not null and the specified column exists in the result
-        if ($row !== null && property_exists($row, $columnName)) {
-            // Check if the column is a timestamp and format it
-            if (in_array($row->$columnName !== null && $columnName, ['created_at', 'last_used_at'], true)) {
+        if ($row !== null && property_exists($row, $columnName) && $row->$columnName !== null && $columnName) {
+            if (in_array($columnName, ['created_at', 'last_used_at'], true)) {
                 $date = DateTime::createFromFormat('Y-m-d H:i:s', $row->$columnName);
                 if ($date) {
                     return $date->format('F jS, Y, \a\t H:i:s');
@@ -389,6 +430,6 @@ class CredentialHelper implements CredentialHelperInterface, PublicKeyCredential
             return $row->$columnName;
         }
 
-        return null; // Return null if the row is null or the column does not exist
+        return null;
     }
 }

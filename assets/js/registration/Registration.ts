@@ -3,7 +3,7 @@ import {
 	RegistrationResponseJSON,
 } from '@simplewebauthn/typescript-types';
 import { startRegistration } from '@simplewebauthn/browser';
-import { VerificationResponse, contextType } from '../WebauthnTypes';
+import { ApiResponse, contextType } from '../WebauthnTypes';
 import Utilities from '../Utilities';
 
 export default class Registration {
@@ -22,7 +22,6 @@ export default class Registration {
 		};
 
 		this.isAdmin = false;
-
 		if ( this.context.nonce ) {
 			this.isAdmin = true;
 			this.headers[ 'X-WP-Nonce' ] = this.context.nonce;
@@ -51,9 +50,7 @@ export default class Registration {
 		}
 	}
 
-	async verify(
-		attResp: RegistrationResponseJSON,
-	): Promise<VerificationResponse> {
+	async verify( attResp: RegistrationResponseJSON ): Promise<ApiResponse> {
 		try {
 			const response: Response = await fetch(
 				this.context.restEndpoints.main + '/register/verify',
@@ -76,13 +73,13 @@ export default class Registration {
 		}
 	}
 
-	async start(): Promise<VerificationResponse> {
+	async start(): Promise<ApiResponse> {
 		try {
 			const options: PublicKeyCredentialCreationOptionsJSON =
         await this.generateOptions();
 			const attResp: RegistrationResponseJSON =
         await startRegistration( options );
-			let verificationJSON: VerificationResponse = {
+			let verificationJSON: ApiResponse = {
 				code: '',
 				message: '',
 			};

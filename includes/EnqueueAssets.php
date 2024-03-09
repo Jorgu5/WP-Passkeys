@@ -112,7 +112,7 @@ class EnqueueAssets
 
     public function enqueueSettingStyles($hook): void
     {
-        if ($hook !== 'settings_page_wppk_passkeys_settings') {
+        if ($hook !== 'profile.php' && $hook !== 'user-edit.php') {
             return;
         }
         wp_enqueue_style(

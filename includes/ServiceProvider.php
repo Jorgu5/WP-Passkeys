@@ -9,6 +9,8 @@ use Webauthn\AttestationStatement\NoneAttestationStatementSupport;
 use Webauthn\AuthenticationExtensions\ExtensionOutputCheckerHandler;
 use Webauthn\AuthenticatorAssertionResponseValidator;
 use Webauthn\PublicKeyCredentialLoader;
+use WpPasskeys\Admin\PasskeysInfoRender;
+use WpPasskeys\Admin\UserPasskeysCardRender;
 use WpPasskeys\Admin\UserSettings;
 use WpPasskeys\Ceremonies\AuthEndpoints;
 use WpPasskeys\Ceremonies\RegisterEndpoints;
@@ -49,6 +51,8 @@ class ServiceProvider extends AbstractServiceProvider
         CredentialEntityInterface::class,
         Utilities::class,
         UserSettings::class,
+        UserPasskeysCardRender::class,
+        PasskeysInfoRender::class,
     ];
 
     public function provides(string $id): bool
@@ -65,6 +69,11 @@ class ServiceProvider extends AbstractServiceProvider
 
             return $manager;
         });
+
+        $container->add(PasskeysInfoRender::class);
+
+        $container->add(UserPasskeysCardRender::class)
+                  ->addArgument(CredentialHelperInterface::class);
 
         $container->add(UsernameHandler::class)
                   ->addArgument(SessionHandlerInterface::class);
@@ -121,6 +130,7 @@ class ServiceProvider extends AbstractServiceProvider
                       PublicKeyCredentialParameters::class,
                       PublicKeyCredentialLoader::class,
                       AttestationStatementSupportManager::class,
+                      UserPasskeysCardRender::class,
                   ]);
 
         $container->add(RestApiHandler::class)
@@ -131,6 +141,10 @@ class ServiceProvider extends AbstractServiceProvider
                   ]);
 
         $container->add(UserSettings::class)
-                  ->addArgument(CredentialHelperInterface::class);
+                  ->addArguments([
+                      CredentialHelperInterface::class,
+                      UserPasskeysCardRender::class,
+                      PasskeysInfoRender::class,
+                  ]);
     }
 }

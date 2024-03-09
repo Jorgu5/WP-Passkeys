@@ -34,14 +34,14 @@ interface CredentialHelperInterface
     /**
      * Finds all credential sources for a given WordPress username.
      *
-     * @param PublicKeyCredentialUserEntity $publicKeyCredentialUserEntity
+     * @param string $userLogin
      *
      * @return array The array of PublicKeyCredentialDescriptor objects.
      * @throws InvalidDataException
      * @throws JsonException
      * @throws InvalidCredentialsException
      */
-    public function findAllForUserEntity(PublicKeyCredentialUserEntity $publicKeyCredentialUserEntity): array;
+    public function findAllForUserEntity(string $userLogin): array;
 
     /**
      * Saves a credential source to the database.

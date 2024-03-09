@@ -75,7 +75,7 @@ class RestApiHandler extends AbstractApiHandler
             ]
         );
         $this->registerRoute(
-            self::CREDENTIAL_NAMESPACE . '/user/remove',
+            self::CREDENTIAL_NAMESPACE . '/user/remove/(?P<id>[^/]+)',
             'DELETE',
             [$this->credentialEndpoints, 'removeUserCredentials'],
             fn() => current_user_can('read')

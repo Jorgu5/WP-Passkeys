@@ -16,6 +16,11 @@ class CredentialEndpoints implements CredentialEndpointsInterface
     ) {
     }
 
+    /**
+     * @param WP_REST_Request $request
+     *
+     * @return WP_REST_Response
+     */
     public function setUserCredentials(WP_REST_Request $request): WP_REST_Response
     {
         $userData = $request->get_params();
@@ -57,44 +62,65 @@ class CredentialEndpoints implements CredentialEndpointsInterface
     }
 
     /**
-     * @throws InvalidCredentialsException
+     * @param WP_REST_Request $request
+     *
+     * @return WP_REST_Response
      */
     public function removeUserCredentials(WP_REST_Request $request): WP_REST_Response
     {
         global $wpdb;
 
-        $userId         = get_current_user_id();
-        $pkCredentialId = get_user_meta($userId, 'pk_credential_id', true);
-        $response       = null;
+        $userId = get_current_user_id();
+        // Retrieve pk_credential_id from the request
+        $requestedPkCredentialId = $request->get_param('id');
+        $pkCredentialIds         = get_user_meta($userId, 'pk_credential_id', true);
 
-        if ($pkCredentialId) {
-            $response = new WP_Error('no_credentials', 'No credentials found for this user', ['status' => 404]);
-        }
-
-        if (! delete_user_meta($userId, 'pk_credential_id')) {
-            throw new InvalidCredentialsException('Failed to remove pk_credential_id meta input');
-        }
-
-        $deletedRows = $wpdb->delete('wp_pk_credential_sources', ['pk_credential_id' => $pkCredentialId], ['%s']);
-
-        /**
-         * If the delete query fails, we need to reassign the credential id to the user a.k.a backup plan.
-         */
-        if ($deletedRows === false) {
-            update_user_meta($userId, 'pk_credential_id', $pkCredentialId);
-            throw new InvalidCredentialsException('Failed to remove credential source');
-        }
-
-        if (is_wp_error($response)) {
-            $this->utilities->handleWpError($response);
-        }
-
-        return new WP_REST_Response(
-            [
-                'code'    => 200,
-                'message' => 'Successfully removed credentials for user with ID: ' . $userId,
+        if (empty($pkCredentialIds) || ! is_array($pkCredentialIds)) {
+            return new WP_REST_Response([
+                'code'    => 204,
+                'message' => 'No credentials found for this user',
                 'data'    => [],
-            ]
+            ]);
+        }
+
+        if (! in_array($requestedPkCredentialId, $pkCredentialIds, true)) {
+            return new WP_REST_Response([
+                'code'    => 204,
+                'message' => 'Requested credential ID not found for this user',
+                'data'    => [],
+            ]);
+        }
+
+        // Remove the specific pk_credential_id from the array
+        $updatedPkCredentialIds = array_filter(
+            $pkCredentialIds,
+            static function ($pkCredentialId) use ($requestedPkCredentialId) {
+                return $pkCredentialId !== $requestedPkCredentialId;
+            }
         );
+
+        // Update the user's stored credentials
+        update_user_meta($userId, 'pk_credential_id', $updatedPkCredentialIds);
+
+        // Now, remove the specific credential from the custom table
+        $deletedRows = $wpdb->delete(
+            'wp_pk_credential_sources',
+            ['pk_credential_id' => $requestedPkCredentialId],
+            ['%s']
+        );
+
+        if ($deletedRows === false) {
+            return new WP_REST_Response([
+                'code'    => 500,
+                'message' => 'Failed to remove credential source',
+                'data'    => [],
+            ]);
+        }
+
+        return new WP_REST_Response([
+            'code'    => 200,
+            'message' => 'Successfully removed credentials for user with ID: ' . $userId,
+            'data'    => [],
+        ]);
     }
 }

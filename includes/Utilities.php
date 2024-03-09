@@ -27,7 +27,7 @@ class Utilities
             'message' => $exception->getMessage(),
         ];
 
-        self::logger($exception);
+        $this->logger($exception);
 
         if (
             (defined('WP_ENVIRONMENT_TYPE') && WP_ENVIRONMENT_TYPE === 'development') ||
@@ -78,7 +78,7 @@ class Utilities
             'data'    => $error->get_error_data(),
         ];
 
-        self::logger($error);
+        $this->logger($error);
 
         return new WP_REST_Response($errorData, $error->get_error_code());
     }

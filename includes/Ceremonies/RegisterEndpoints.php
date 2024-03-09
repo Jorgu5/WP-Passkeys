@@ -28,6 +28,7 @@ use WP_Error;
 use WP_REST_Request;
 use WP_REST_Response;
 use WpOrg\Requests\Exception\InvalidArgument;
+use WpPasskeys\Admin\UserPasskeysCardRender;
 use WpPasskeys\Credentials\CredentialEntityInterface;
 use WpPasskeys\Credentials\CredentialHelperInterface;
 use WpPasskeys\Credentials\UsernameHandler;
@@ -47,6 +48,7 @@ class RegisterEndpoints implements RegisterEndpointsInterface
         public readonly PublicKeyCredentialParameters $publicKeyCredentialParameters,
         public readonly PublicKeyCredentialLoader $publicKeyCredentialLoader,
         public readonly AttestationStatementSupportManager $attestationStatementSupportManager,
+        public readonly UserPasskeysCardRender $userPasskeysCardRender,
     ) {
     }
 
@@ -125,8 +127,10 @@ class RegisterEndpoints implements RegisterEndpointsInterface
                 ExtensionOutputCheckerHandler::create(),
             );
 
+            $publicKeyCredentialId = $this->utilities->safeEncode($pkKeyCredentials->publicKeyCredentialId);
+
             $userId = $this->credentialHelper->updateOrCreateUser(
-                $pkKeyCredentials->publicKeyCredentialId
+                $publicKeyCredentialId
             );
 
             if (is_wp_error($userId)) {
@@ -144,16 +148,10 @@ class RegisterEndpoints implements RegisterEndpointsInterface
                 'code'    => 200,
                 'message' => $this->registerSuccessMessage(),
                 'data'    => [
-                    'redirectUrl'      => $this->utilities->getRedirectUrl(),
-                    'pk_credential_id' => $pkCredential->id,
-                    'created_at'       => $this->credentialHelper->getDataByCredentialId(
-                        $pkCredential->id,
-                        'created_at'
-                    ),
-                    'created_os'       => $this->credentialHelper->getDataByCredentialId(
-                        $pkCredential->id,
-                        'created_os'
-                    ),
+                    'redirectUrl' => $this->utilities->getRedirectUrl(),
+                    'cardHtml'    => $this->userPasskeysCardRender->renderPasskeyCard(
+                        $publicKeyCredentialId
+                    ) ?? '',
                 ],
             ];
 

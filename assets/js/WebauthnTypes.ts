@@ -11,12 +11,13 @@ export enum NotificationStatus {
   Info = 'info',
 }
 
-export type VerificationResponse = {
+export type ApiResponse = {
   code: string | number;
   message: string;
   data?: {
     redirectUrl?: string;
     pk_credential_id?: string;
+    cardHtml?: string;
   };
 };
 
@@ -40,5 +41,5 @@ export interface AuthenticatorInterface {
 
   start( authResp: AuthenticationResponseJSON, id?: string ): Promise<void>;
 
-  verify( attResp: AuthenticationResponseJSON ): Promise<VerificationResponse>;
+  verify( attResp: AuthenticationResponseJSON ): Promise<ApiResponse>;
 }
