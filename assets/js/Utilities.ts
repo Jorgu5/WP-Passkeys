@@ -32,7 +32,7 @@ export default class Utilities {
 		context?: string,
 	): void {
 		const existingNotifications = target.parentNode?.querySelectorAll(
-			`.message.${ NotificationStatus[ type ] }`,
+			`.notice.notice-${ NotificationStatus[ type ] }`,
 		);
 		let exists = false;
 
@@ -47,8 +47,12 @@ export default class Utilities {
 		}
 
 		const notificationWrapper = document.createElement( 'p' );
-		notificationWrapper.classList.add( 'message', NotificationStatus[ type ] );
+		notificationWrapper.classList.add(
+			'notice',
+			`notice-${ NotificationStatus[ type ].toLowerCase() }`,
+		);
 		if ( context === 'admin' ) {
+			// TODO: Check if only adding is-dismissable is enough
 			notificationWrapper.classList.add(
 				'notice',
 				`is-dismissable`,

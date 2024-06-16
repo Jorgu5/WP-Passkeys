@@ -10,7 +10,8 @@ interface RegistrationOptions {
   message: string;
   data: {
     credentials: PublicKeyCredentialCreationOptionsJSON;
-    email: string;
+    email?: string;
+    username?: string;
   };
 }
 
@@ -49,8 +50,9 @@ export default class Registration {
 	async verifyOptions(
 		attResp: RegistrationResponseJSON,
 		email?: string,
+		username?: string,
 	): Promise<ApiResponse> {
-		const url = `${ this.context.restEndpoints.main }/register/verify?email=${ email }`;
+		const url = `${ this.context.restEndpoints.main }/register/verify?email=${ email }&username=${ username }`;
 		return this.fetchWrapper( url, {
 			method: 'POST',
 			headers: this.headers,
@@ -64,15 +66,20 @@ export default class Registration {
 			if ( code === 202 ) {
 				Utilities.setNotification( message, 'Success', this.registerWrapper );
 			}
+
 			const attResp = await startRegistration( data.credentials );
-			const verificationJSON = await this.verifyOptions( attResp, data.email );
+			const verificationJSON = await this.verifyOptions(
+				attResp,
+				data.email,
+				data.username,
+			);
 			if (
 				verificationJSON.message &&
         verificationJSON.code !== 200 &&
         verificationJSON.code !== 202
 			) {
 				this.handleNotification( verificationJSON.message, 'Error' );
-				return; // Exit early if there is an error
+				return;
 			}
 
 			// Handle success or redirection
@@ -89,17 +96,27 @@ export default class Registration {
 	private async fetchWrapper( url: string, options: RequestInit ): Promise<any> {
 		const response = await fetch( url, options );
 		if ( ! response.ok ) {
+			const errorResponse = await response.json();
 			if ( response.status === 409 ) {
 				Utilities.setNotification(
-					'Email already exists, if you want to update your passkeys, please login and go to your profile or use "forgot password"',
+					errorResponse.message,
 					'Error',
 					this.registerWrapper,
 				);
-				const emailInput = this.registerWrapper.querySelector(
-					'#user_email',
-				) as HTMLInputElement;
 
-				emailInput.classList.add( 'error' );
+				if ( errorResponse.message.includes( 'Email' ) ) {
+					const emailInput = this.registerWrapper.querySelector(
+						'#user_email',
+					) as HTMLInputElement;
+					emailInput.classList.add( 'error' );
+				}
+
+				if ( errorResponse.message.includes( 'Username' ) ) {
+					const usernameInput = this.registerWrapper.querySelector(
+						'#user_login',
+					) as HTMLInputElement;
+					usernameInput.classList.add( 'error' );
+				}
 			} else if ( response.status === 426 ) {
 				Utilities.setNotification(
 					'Enable HTTPS to use WebAuthn.',
@@ -108,7 +125,7 @@ export default class Registration {
 				);
 			}
 			throw new Error(
-				`Server returned ${ response.status }: ${ response.statusText }`,
+				`Server returned ${ response.status }: ${ errorResponse.message }`,
 			);
 		}
 		return response.json();

@@ -68,6 +68,7 @@ class RegisterEndpoints implements RegisterEndpointsInterface
                 'data'    => [
                     'credentials' => $publicKeyCredentialCreationOptions,
                     'email'       => $email,
+                    'username'    => $username,
                 ],
             ];
         } catch (Exception $e) {
@@ -121,6 +122,7 @@ class RegisterEndpoints implements RegisterEndpointsInterface
             $pkCredential          = $this->getPublicKeyCredential($request->get_body());
             $pkKeyCredentialSource = $this->validateAuthenticatorAttestationResponse($pkCredential);
             $email                 = (string)$request->get_param('email');
+            $username              = (string)$request->get_param('username');
 
             // Prepare credential ID and save credential source.
             $pkCredentialId = $this->utilities->safeEncode($pkKeyCredentialSource->publicKeyCredentialId);
@@ -135,7 +137,19 @@ class RegisterEndpoints implements RegisterEndpointsInterface
 
             // Check if the email exists in the system already and handle accordingly.
             if (email_exists($email)) {
-                $this->response = ['code' => 409];
+                $this->response = [
+                    'code'    => 409,
+                    'message' => 'Email already exists. If you want to update your passkeys, please login and go to your profile or use "forgot password".',
+                ];
+
+                return new WP_REST_Response($this->response, 409);
+            }
+
+            if (username_exists($username)) {
+                $this->response = [
+                    'code'    => 409,
+                    'message' => 'Username already exists. Please choose a different one.',
+                ];
 
                 return new WP_REST_Response($this->response, 409);
             }
@@ -144,9 +158,7 @@ class RegisterEndpoints implements RegisterEndpointsInterface
             $this->emailConfirmation->sendConfirmationEmail($email);
             $this->response = [
                 'code'    => 202,
-                'message' => 'Your passkey registration has started successfully. ' .
-                             'An email has been sent to your address with a confirmation link.' .
-                             'Please check your inbox (and spam folder) and click on the link.',
+                'message' => 'Your passkey registration has started successfully. An email has been sent to your address with a confirmation link. Please check your inbox (and spam folder) and click on the link.',
                 'data'    => ['email' => $email],
             ];
 
