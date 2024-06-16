@@ -4,12 +4,14 @@ namespace WpPasskeys\Ceremonies;
 
 use Exception;
 use RuntimeException;
+use Symfony\Component\Serializer\SerializerInterface;
 use Throwable;
 use Webauthn\AttestationStatement\AttestationStatementSupportManager;
 use Webauthn\AuthenticatorAttestationResponse;
 use Webauthn\Exception\InvalidDataException;
 use Webauthn\PublicKeyCredential;
 use Webauthn\PublicKeyCredentialCreationOptions;
+use Webauthn\PublicKeyCredentialSource;
 use WP_Error;
 use WP_REST_Request;
 use WP_REST_Response;
@@ -36,28 +38,26 @@ interface RegisterEndpointsInterface
      */
     public function verifyPublicKeyCredentials(WP_REST_Request $request): WP_Error|WP_REST_Response;
 
-    public function getVerifiedResponse(): array;
-
     /**
      * @throws Exception
      */
     public function getChallenge(): string;
 
-    public function getPkParameters(): array;
-
     /**
      * @throws InvalidDataException
      * @throws Throwable
      */
-    public function getPkCredential(WP_REST_Request $request): PublicKeyCredential;
-
-    public function getAuthenticatorAttestationResponse(
-        PublicKeyCredential $pkCredential
-    ): AuthenticatorAttestationResponse;
+    public function getPublicKeyCredential(string $data): PublicKeyCredential;
 
     public function getRedirectUrl(): string;
 
-    public function getPkCredentialResponse(PublicKeyCredential $pkCredential);
-
     public function creationOptions(string $userLogin): PublicKeyCredentialCreationOptions|WP_Error;
+
+    /**
+     * Retrieves the validated credentials.
+     *
+     * @return PublicKeyCredentialSource The validated credentials.
+     * @throws Throwable
+     */
+    public function validateAuthenticatorAttestationResponse(PublicKeyCredential $publicKeyCredential): PublicKeyCredentialSource;
 }

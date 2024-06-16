@@ -41,5 +41,5 @@ export interface AuthenticatorInterface {
 
   start( authResp: AuthenticationResponseJSON, id?: string ): Promise<void>;
 
-  verify( attResp: AuthenticationResponseJSON ): Promise<ApiResponse>;
+  verifyOptions( attResp: AuthenticationResponseJSON ): Promise<ApiResponse>;
 }

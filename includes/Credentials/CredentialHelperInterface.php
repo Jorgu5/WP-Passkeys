@@ -47,11 +47,17 @@ interface CredentialHelperInterface
      * Saves a credential source to the database.
      *
      * @param PublicKeyCredentialSource $publicKeyCredentialSource The credential source to save.
+     * @param string $pkCredentialId
+     * @param string|null $email
      *
      * @return void
      * @throws Exception If there is an error saving the credential source.
      */
-    public function saveCredentialSource(PublicKeyCredentialSource $publicKeyCredentialSource): void;
+    public function saveCredentialSource(
+        PublicKeyCredentialSource $publicKeyCredentialSource,
+        string $pkCredentialId,
+        ?string $email
+    ): void;
 
     public function saveSessionCredentialOptions(
         PublicKeyCredentialCreationOptions $publicKeyCredentialCreationOptions
@@ -71,18 +77,6 @@ interface CredentialHelperInterface
     public function getUserByCredentialId(string $pkCredentialId): int|WP_Error;
 
     /**
-     * Retrieves the validated credentials.
-     *
-     * @return PublicKeyCredentialSource The validated credentials.
-     * @throws Throwable
-     */
-    public function getPublicKeyCredentials(
-        AuthenticatorAttestationResponse $authenticatorAttestationResponse,
-        AttestationStatementSupportManager $supportManager,
-        ExtensionOutputCheckerHandler $checkerHandler
-    ): PublicKeyCredentialSource;
-
-    /**
      * @param array $userData
      * @param string $publicKeyCredentialId
      *
@@ -97,4 +91,6 @@ interface CredentialHelperInterface
      * @return int|WP_Error
      */
     public function updateExistingUserWithPkCredentialId(int $userId, string $publicKeyCredentialId): int|WP_Error;
+
+    public function findCredentialIdByEmail(string $email): string;
 }

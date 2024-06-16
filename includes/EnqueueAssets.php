@@ -27,13 +27,21 @@ class EnqueueAssets
 
     public function enqueueLoginScripts(): void
     {
-        wp_enqueue_script(
-            'passkeys-register',
-            $this->getAssetsPath() . 'js/registration/index.js',
-            [],
-            WP_PASSKEYS_VERSION,
-            true
-        );
+        if (
+            isset($_GET['email'], $_GET['pkEmailToken']) && in_array(
+                'user_email',
+                get_option('wppk_require_userdata'),
+                true
+            )
+        ) {
+            wp_enqueue_script(
+                'passkeys-register',
+                $this->getAssetsPath() . 'js/registration/index.js',
+                [],
+                WP_PASSKEYS_VERSION,
+                true
+            );
+        }
 
         wp_enqueue_script(
             'passkeys-form',

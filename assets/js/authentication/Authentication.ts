@@ -21,7 +21,6 @@ export default class Authentication implements AuthenticatorInterface {
 			this.context.restEndpoints.main + '/authenticator/options',
 		);
 		if ( ! response.ok ) {
-			console.log( response );
 			Utilities.setNotification(
 				`${ response.status }: ${ response.statusText }`,
 				'Error',
@@ -72,7 +71,9 @@ export default class Authentication implements AuthenticatorInterface {
 
 		try {
 			const authOptions = await this.generateOptions();
+			console.log( authOptions );
 			const authResp = await startAuthentication( authOptions, isAutofill );
+			console.log( authResp );
 			if ( authResp ) {
 				const { id } = authResp;
 				await this.start( authResp, id );

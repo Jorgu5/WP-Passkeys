@@ -14,12 +14,10 @@ use Exception;
 use InvalidArgumentException;
 use JsonException;
 use Throwable;
-use Webauthn\AuthenticationExtensions\ExtensionOutputCheckerHandler;
 use Webauthn\AuthenticatorAssertionResponse;
 use Webauthn\AuthenticatorAssertionResponseValidator;
 use Webauthn\AuthenticatorResponse;
 use Webauthn\PublicKeyCredential;
-use Webauthn\PublicKeyCredentialLoader;
 use Webauthn\PublicKeyCredentialRequestOptions;
 use WP_Error;
 use WP_REST_Request;
@@ -31,6 +29,7 @@ use WpPasskeys\Credentials\SessionHandlerInterface;
 use WpPasskeys\Exceptions\InvalidCredentialsException;
 use WpPasskeys\Exceptions\InvalidUserDataException;
 use WpPasskeys\Utilities;
+use Webauthn\Denormalizer\WebauthnSerializerFactory;
 
 class AuthEndpoints implements AuthEndpointsInterface
 {
@@ -42,12 +41,12 @@ class AuthEndpoints implements AuthEndpointsInterface
     public array $verifiedResponse;
 
     public function __construct(
-        public readonly PublicKeyCredentialLoader $publicKeyCredentialLoader,
         public readonly AuthenticatorAssertionResponseValidator $authenticatorAssertionResponseValidator,
         public readonly CredentialHelperInterface $credentialHelper,
         public readonly AlgorithmManagerInterface $algorithmManager,
         public readonly Utilities $utilities,
-        public readonly SessionHandlerInterface $sessionHandler
+        public readonly SessionHandlerInterface $sessionHandler,
+        public readonly WebauthnSerializerFactory $serializer,
     ) {
         $this->verifiedResponse = [];
     }
@@ -87,7 +86,7 @@ class AuthEndpoints implements AuthEndpointsInterface
         try {
             $authenticatorAssertionResponse =
                 $this->getAuthenticatorAssertionResponse(
-                    $this->getPkCredential($request)
+                    $this->getPublicKeyCredential($request)
                 );
 
             $this->validateAuthenticatorAssertionResponse($authenticatorAssertionResponse, $request);
@@ -122,7 +121,7 @@ class AuthEndpoints implements AuthEndpointsInterface
     public function getAuthenticatorAssertionResponse(
         PublicKeyCredential $pkCredential
     ): AuthenticatorAssertionResponse {
-        $authenticatorAssertionResponse = $this->getPkCredentialResponse($pkCredential);
+        $authenticatorAssertionResponse = $this->getPublicKeyCredentialResponse($pkCredential);
         if (! ($authenticatorAssertionResponse instanceof AuthenticatorAssertionResponse)) {
             throw new InvalidArgumentException('AuthenticatorAssertionResponse expected');
         }
@@ -130,41 +129,52 @@ class AuthEndpoints implements AuthEndpointsInterface
         return $authenticatorAssertionResponse;
     }
 
-    public function getPkCredentialResponse(PublicKeyCredential $pkCredential): AuthenticatorResponse
+    public function getPublicKeyCredentialResponse(PublicKeyCredential $pkCredential): AuthenticatorResponse
     {
         return $pkCredential->response;
     }
 
-    public function getPkCredential(WP_REST_Request $request): PublicKeyCredential
+    public function getPublicKeyCredential(WP_REST_Request $request): PublicKeyCredential
     {
-        $data = $request->get_body();
-
-        return $this->publicKeyCredentialLoader->load($data);
+        return $this->serializer->create()->deserialize($request->get_body(), PublicKeyCredential::class, 'json');
     }
 
     public function validateAuthenticatorAssertionResponse(
         AuthenticatorAssertionResponse $authenticatorAssertionResponse,
         WP_REST_Request $request
     ): void {
-        $this->createAuthenticatorAssertionResponse()->check(
-            $this->getRawId($request),
+        $publicKeyCredentialSource = $this->credentialHelper->findOneByCredentialId(
+            $this->getPublicKeyCredential($request)->id
+        );
+        if ($publicKeyCredentialSource === null) {
+            throw new InvalidCredentialsException('Credentials for this username have not been found in the database.');
+        }
+        $this->authenticatorAssertionResponseValidator->check(
+            $publicKeyCredentialSource,
             $authenticatorAssertionResponse,
             $this->sessionHandler->get(self::SESSION_KEY),
             $this->utilities->getHostname(),
             $authenticatorAssertionResponse->userHandle,
-            $this->utilities->isLocalhost() ? ["localhost"] : [],
+            null
         );
     }
 
-    public function createAuthenticatorAssertionResponse(): AuthenticatorAssertionResponseValidator
+    /**
+     * @throws InvalidCredentialsException
+     * @throws InvalidUserDataException
+     */
+    public function loginUserWithCookie(WP_REST_Request $request): void
     {
-        return $this->authenticatorAssertionResponseValidator::create(
-            $this->credentialHelper,
-            null,
-            ExtensionOutputCheckerHandler::create(),
-            $this->algorithmManager->init(),
-            null,
-        );
+        if ($request->has_param('id')) {
+            $userId = $this->credentialHelper->getUserByCredentialId($request->get_param('id'));
+            if ($userId instanceof WP_Error) {
+                throw new InvalidCredentialsException($userId->get_error_message());
+            }
+            $this->utilities->setAuthCookie(null, $userId);
+        } else {
+            $userLogin = $this->credentialHelper->getSessionUserLogin();
+            $this->utilities->setAuthCookie($userLogin);
+        }
     }
 
     public function getRawId(WP_REST_Request $request): string
@@ -178,21 +188,6 @@ class AuthEndpoints implements AuthEndpointsInterface
         }
 
         return $rawId;
-    }
-
-    /**
-     * @throws InvalidCredentialsException
-     * @throws InvalidUserDataException
-     */
-    public function loginUserWithCookie(WP_REST_Request $request): void
-    {
-        if ($request->has_param('id')) {
-            $userId = $this->credentialHelper->getUserByCredentialId($request->get_param('id'));
-            $this->utilities->setAuthCookie(null, $userId);
-        } else {
-            $userLogin = $this->credentialHelper->getSessionUserLogin();
-            $this->utilities->setAuthCookie($userLogin);
-        }
     }
 
     public function getVerifiedResponse(): array

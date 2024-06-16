@@ -27,8 +27,6 @@ class Utilities
             'message' => $exception->getMessage(),
         ];
 
-        $this->logger($exception);
-
         if (
             (defined('WP_ENVIRONMENT_TYPE') && WP_ENVIRONMENT_TYPE === 'development') ||
             (defined('WP_DEBUG') && WP_DEBUG)
@@ -67,20 +65,18 @@ class Utilities
     /**
      * @param WP_Error $error
      *
-     * @return WP_REST_Response
+     * @return array
      */
 
-    public function handleWpError(WP_Error $error): WP_REST_Response
+    public function handleWpError(WP_Error $error): array
     {
-        $errorData = [
+        $this->logger($error);
+
+        return [
             'code'    => $error->get_error_code(),
             'message' => $error->get_error_message(),
             'data'    => $error->get_error_data(),
         ];
-
-        $this->logger($error);
-
-        return new WP_REST_Response($errorData, $error->get_error_code());
     }
 
     public function safeEncode(string $data): string

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace WpPasskeys\Credentials;
 
+use WP_User;
 use WpPasskeys\Utilities;
 
 class UsernameHandler
@@ -31,6 +32,7 @@ class UsernameHandler
             'user_login'   => $username,
             'user_email'   => $userData['user_email'] ?? '',
             'display_name' => $displayName,
+            'user_pass'    => null,
         ];
 
         $this->sessionHandler->set('user_data', $userData);
@@ -107,18 +109,8 @@ class UsernameHandler
         return ! empty($email) ? explode('@', $email)[0] : $username;
     }
 
-    public function getUserEarlyData(): array
+    public function getUser(string $username): WP_User|false
     {
-        if (isset($_COOKIE[LOGGED_IN_COOKIE])) {
-            // Manually inspect the logged-in cookie.
-            // Note: This does not guarantee the user is valid or has not tampered with the cookie.
-            $user_id = wp_validate_auth_cookie($_COOKIE[LOGGED_IN_COOKIE], 'logged_in');
-            if ($user_id) {
-                // Now, you have a user ID before the usual 'init' action.
-                // You can load the user object manually if needed.
-                $user = get_user_by('id', $user_id);
-                // Note: Use this data cautiously, as full user session verification may not have occurred yet.
-            }
-        }
+        return get_user_by('login', $username);
     }
 }

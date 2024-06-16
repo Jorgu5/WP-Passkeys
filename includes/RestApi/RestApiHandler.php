@@ -18,9 +18,6 @@ class RestApiHandler extends AbstractApiHandler
 {
     private const OPTIONS_CALLBACK = 'createPublicKeyCredentialOptions';
     private const VERIFY_CALLBACK = 'verifyPublicKeyCredentials';
-    private const REGISTER_NAMESPACE = '/register';
-    private const AUTH_NAMESPACE = '/authenticator';
-    private const CREDENTIAL_NAMESPACE = '/creds';
 
 
     public function __construct(
@@ -34,71 +31,76 @@ class RestApiHandler extends AbstractApiHandler
 
     public function registerAuthRoutes(): void
     {
-        // Register routes
+        // Endpoint: /wp-json/wp-passkeys/register/options
         $this->registerRoute(
-            self::REGISTER_NAMESPACE . '/options',
+            '/register/options',
             'GET',
             [$this->registerEndpoints, self::OPTIONS_CALLBACK]
         );
+
+        // Endpoint: /wp-json/wp-passkeys/register/verify
         $this->registerRoute(
-            self::REGISTER_NAMESPACE . '/verify',
+            '/register/verify',
             'POST',
             [
                 $this->registerEndpoints,
                 self::VERIFY_CALLBACK,
             ]
         );
-        // Auth routes
+
+        // Endpoint: /wp-json/wp-passkeys/authenticator/options
         $this->registerRoute(
-            self::AUTH_NAMESPACE . '/options',
+            '/authenticator/options',
             'GET',
             [
                 $this->authEndpoints,
                 self::OPTIONS_CALLBACK,
             ]
         );
+
+        // Endpoint: /wp-json/wp-passkeys/authenticator/verify
         $this->registerRoute(
-            self::AUTH_NAMESPACE . '/verify',
+            '/authenticator/verify',
             'POST',
             [
                 $this->authEndpoints,
                 self::VERIFY_CALLBACK,
             ]
         );
-        // Other
+
+        // Endpoint: /wp-json/wp-passkeys/register/user/email
         $this->registerRoute(
-            self::CREDENTIAL_NAMESPACE . '/user',
+            '/register/user/email',
+            'GET',
+            [$this->registerEndpoints, 'userEmailConfirmation']
+        );
+
+        // Endpoint: /wp-json/wp-passkeys/creds/user
+        $this->registerRoute(
+            '/creds/user',
+            'GET',
+            [
+                $this->credentialEndpoints,
+                'getUserCredentials',
+            ]
+        );
+
+        // Endpoint: /wp-json/wp-passkeys/creds/user
+        $this->registerRoute(
+            '/creds/user',
             'POST',
             [
                 $this->credentialEndpoints,
                 'setUserCredentials',
             ]
         );
+
+        // Endpoint: /wp-json/wp-passkeys/creds/user/remove/{id}
         $this->registerRoute(
-            self::CREDENTIAL_NAMESPACE . '/user/remove/(?P<id>[^/]+)',
+            '/creds/user/remove/(?P<id>[^/]+)',
             'DELETE',
             [$this->credentialEndpoints, 'removeUserCredentials'],
             fn() => current_user_can('read')
         );
-    }
-
-    /**
-     * @throws ReflectionException
-     * TODO: Refactor to use Reflection for getting endpoint name instead of hardcoding at the start of the class.
-     */
-    private function getEndpointCallbacks(): string
-    {
-        $endpointClasses = [
-            $this->credentialEndpoints::class,
-            $this->authEndpoints::class,
-            $this->registerEndpoints::class,
-        ];
-
-        foreach ($endpointClasses as $endpointClass) {
-            $reflection = new ReflectionClass($endpointClass);
-            $endpoints  = $reflection->getMethods();
-        }
-
-        return '';
     }
 }

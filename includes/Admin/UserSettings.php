@@ -28,7 +28,7 @@ class UserSettings
      */
     public function displayUserPasskeySettings(): void
     {
-        if (! current_user_can('read')) {
+        if ( ! current_user_can('read')) {
             return;
         }
 
@@ -62,22 +62,22 @@ class UserSettings
     public function getPkCredentialIds(): void
     {
         $user_id               = get_current_user_id();
-        $this->pkCredentialIds = get_user_meta($user_id, 'pk_credential_id', true);
+        $this->pkCredentialIds = get_user_meta($user_id, 'pk_credential_id', false);
     }
 
 
     public function showGeneralAdminNotice(): void
     {
-        if (! $this->pkCredentialIds && get_option('wppk_prompt_password_users') === 'on') {
+        if ( ! $this->pkCredentialIds && get_option('wppk_prompt_password_users') === 'on') {
             echo '<div style="display: flex; align-items: center;" class="notice notice-info is-dismissible">
                 <p>' . __(
-                'We now offer passkeys support, and it looks like you have not set up your keys yet.
+                    'We now offer passkeys support, and it looks like you have not set up your keys yet.
                 Get started now to enhance your security and enjoy easier logins across multiple devices.',
-                'wp-passkeys'
-            ) . '</p><a href="' . get_edit_profile_url() . '#user-passkeys" class="button button-primary">' . __(
-                'Create passkeys',
-                'wp-passkeys'
-            ) . '</a>
+                    'wp-passkeys'
+                ) . '</p><a href="' . get_edit_profile_url() . '#user-passkeys" class="button button-primary">' . __(
+                     'Create passkeys',
+                     'wp-passkeys'
+                 ) . '</a>
             </div>';
         }
     }
@@ -103,7 +103,7 @@ class UserSettings
             isset($_POST['submit']) &&
             $_POST['submit'] === 'clear_user_passkeys'
         ) {
-            if (! current_user_can('edit_user', $currentUserId)) {
+            if ( ! current_user_can('edit_user', $currentUserId)) {
                 return;
             }
 
@@ -120,7 +120,7 @@ class UserSettings
                 );
             }
 
-            if (! is_bool($removeUser) && is_wp_error($removeUser)) {
+            if ( ! is_bool($removeUser) && is_wp_error($removeUser)) {
                 set_transient(
                     'user_passkeys_clear_error_' . $currentUserId,
                     $removeUser->get_error_message(),

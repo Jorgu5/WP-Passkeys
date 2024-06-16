@@ -25,7 +25,10 @@ class CredentialEndpoints implements CredentialEndpointsInterface
     {
         $userData = $request->get_params();
 
-        $userData = array_intersect_key($userData, array_flip(['user_email', 'user_login', 'display_name']));
+        $userData = array_intersect_key(
+            $userData,
+            array_flip(['user_email', 'user_login', 'display_name', 'user_pass'])
+        );
 
         $savedData = [];
 
@@ -122,5 +125,38 @@ class CredentialEndpoints implements CredentialEndpointsInterface
             'message' => 'Successfully removed credentials for user with ID: ' . $userId,
             'data'    => [],
         ]);
+    }
+
+    /**
+     * Retrieves user credentials from the session.
+     *
+     * @param WP_REST_Request $request
+     *
+     * @return WP_REST_Response
+     */
+    public function getUserCredentials(WP_REST_Request $request): WP_REST_Response
+    {
+        // Attempt to retrieve user data from the session.
+        $userData = $this->sessionHandler->get('user_data');
+
+        if (empty($userData)) {
+            return new WP_REST_Response(
+                [
+                    'code'    => 204,
+                    'message' => 'No user credentials found in the session.',
+                    'data'    => [],
+                ],
+                204 // HTTP status code for No Content
+            );
+        }
+
+        return new WP_REST_Response(
+            [
+                'code'    => 200,
+                'message' => 'User credentials retrieved successfully.',
+                'data'    => ['user_credentials' => $userData],
+            ],
+            200 // HTTP status code for OK
+        );
     }
 }

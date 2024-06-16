@@ -42,7 +42,7 @@ interface AuthEndpointsInterface
         PublicKeyCredential $pkCredential
     ): AuthenticatorAssertionResponse;
 
-    public function getPkCredentialResponse(PublicKeyCredential $pkCredential);
+    public function getPublicKeyCredentialResponse(PublicKeyCredential $pkCredential);
 
     /**
      * @param WP_REST_Request<array<array-key, mixed>> $request
@@ -54,13 +54,11 @@ interface AuthEndpointsInterface
         WP_REST_Request $request
     ): void;
 
-    public function createAuthenticatorAssertionResponse(): AuthenticatorAssertionResponseValidator;
-
     /**
      * @throws InvalidDataException
      * @throws Throwable
      */
-    public function getPkCredential(WP_REST_Request $request): PublicKeyCredential;
+    public function getPublicKeyCredential(WP_REST_Request $request): PublicKeyCredential;
 
     /**
      * @throws InvalidCredentialsException

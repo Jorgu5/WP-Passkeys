@@ -58,6 +58,13 @@ export class FormHandler {
 			const wrapper = this.createWrapper();
 			this.wrapButtons( wrapper, submitButton, this.passkeysButton );
 			this.appendToForms( wrapper );
+			this.fetchAndFillUserCredentials()
+				.then( () => {
+					console.log( 'User credentials fetched and filled' );
+				} )
+				.catch( ( error ) => {
+					console.error( 'Error fetching and filling user credentials:', error );
+				} );
 		}
 
 		// Pass the button element directly
@@ -71,6 +78,29 @@ export class FormHandler {
 			this.passkeysButton,
 			this.handleRegistration.bind( this ),
 		);
+	}
+
+	async fetchAndFillUserCredentials(): Promise<void> {
+		try {
+			const response = await fetch( '/wp-json/wp-passkeys/creds/user', {
+				method: 'GET',
+				headers: {
+					'Content-Type': 'application/json',
+				},
+			} );
+
+			if ( ! response.ok ) {
+				return;
+			}
+
+			const { data } = await response.json();
+
+			if ( data && data.user_credentials ) {
+				this.fillFormWithUserCredentials( data.user_credentials );
+			}
+		} catch ( error ) {
+			console.error( 'Error fetching user credentials:', error );
+		}
 	}
 
 	private addEventToForm(
@@ -172,6 +202,22 @@ export class FormHandler {
 					e.preventDefault();
 					passwordWrapper.hidden = false;
 					passwordInput.disabled = false;
+				}
+			} );
+		}
+	}
+
+	private fillFormWithUserCredentials( credentials: {
+    [key: string]: string;
+  } ): void {
+		if ( this.registerForm ) {
+			Object.keys( credentials ).forEach( ( key ) => {
+				console.log( key );
+				const input = this.registerForm?.querySelector(
+					`input[name="${ key }"]`,
+				) as HTMLInputElement;
+				if ( input ) {
+					input.value = credentials[ key ];
 				}
 			} );
 		}

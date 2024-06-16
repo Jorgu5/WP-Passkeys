@@ -13,14 +13,14 @@ namespace WpPasskeys\Credentials;
 use DateTime;
 use InvalidArgumentException;
 use JsonException;
+use Throwable;
 use Webauthn\AttestationStatement\AttestationStatementSupportManager;
-use Webauthn\AuthenticationExtensions\ExtensionOutputCheckerHandler;
 use Webauthn\AuthenticatorAttestationResponse;
 use Webauthn\AuthenticatorAttestationResponseValidator;
+use Webauthn\CeremonyStep\CeremonyStepManagerFactory;
 use Webauthn\Exception\InvalidDataException;
 use Webauthn\PublicKeyCredentialCreationOptions;
 use Webauthn\PublicKeyCredentialSource;
-use Webauthn\PublicKeyCredentialUserEntity;
 use WP_Error;
 use wpdb;
 use WpPasskeys\Exceptions\InvalidCredentialsException;
@@ -89,6 +89,10 @@ class CredentialHelper implements CredentialHelperInterface
             return [];
         }
 
+        if (! is_array($pkCredentialIds)) {
+            $pkCredentialIds = [$pkCredentialIds];
+        }
+
         $publicKeyCredentialSources = [];
         foreach ($pkCredentialIds as $pkCredentialId) {
             $credentialSource = $this->findOneByCredentialId($pkCredentialId);
@@ -102,40 +106,71 @@ class CredentialHelper implements CredentialHelperInterface
 
     public function findOneByCredentialId(string $publicKeyCredentialId): ?PublicKeyCredentialSource
     {
-        $credentialSource = $this->wpdb->get_var(
-            $this->wpdb->prepare(
-                "SELECT credential_source FROM wp_pk_credential_sources WHERE pk_credential_id = %s",
-                $publicKeyCredentialId
-            )
+        $query = $this->wpdb->prepare(
+            "SELECT credential_source FROM wp_pk_credential_sources WHERE pk_credential_id = %s",
+            $publicKeyCredentialId
         );
+
+        return $this->findOneByQuery($query);
+    }
+
+    /**
+     * Retrieves a PublicKeyCredentialSource based on a provided SQL query.
+     *
+     * @param string $query The SQL query to execute.
+     *
+     * @return PublicKeyCredentialSource|null The PublicKeyCredentialSource or null if not found.
+     * @throws JsonException|InvalidDataException If an error occurs during JSON decoding.
+     */
+    private function findOneByQuery(string $query): ?PublicKeyCredentialSource
+    {
+        $credentialSource = $this->wpdb->get_var($query);
 
         if (empty($credentialSource)) {
             return null;
         }
+
         $data = json_decode($credentialSource, true, 512, JSON_THROW_ON_ERROR);
 
         return PublicKeyCredentialSource::createFromArray($data);
     }
 
-    public function saveCredentialSource(PublicKeyCredentialSource $publicKeyCredentialSource): void
+    /**
+     * @throws InvalidDataException
+     * @throws JsonException
+     */
+    public function findCredentialIdByEmail(string $email): string
     {
-        $safeEncodedPkId = $this->utilities->safeEncode($publicKeyCredentialSource->publicKeyCredentialId);
+        $query = $this->wpdb->prepare(
+            "SELECT credential_source FROM wp_pk_credential_sources WHERE email = %s",
+            $email
+        );
 
-        if ($this->findOneByCredentialId($safeEncodedPkId)) {
+        $pkCredentialId = $this->findOneByQuery($query)->publicKeyCredentialId;
+
+        return $this->utilities->safeEncode($pkCredentialId);
+    }
+
+    public function saveCredentialSource(
+        PublicKeyCredentialSource $publicKeyCredentialSource,
+        string $pkCredentialId,
+        ?string $email
+    ): void {
+        if ($this->findOneByCredentialId($pkCredentialId)) {
             return;
         }
 
         $createdAt = date('Y-m-d H:i:s');
         $createdOs = $this->utilities->getDeviceOS();
 
-        // Insert only the credential source into the custom table wp_pk_credential_sources
         $this->wpdb->insert('wp_pk_credential_sources', [
-            'pk_credential_id' => $safeEncodedPkId,
+            'email'             => $email,
+            'pk_credential_id'  => $pkCredentialId,
             'credential_source' => json_encode($publicKeyCredentialSource, JSON_THROW_ON_ERROR),
-            'created_at' => $createdAt,
-            'created_os' => $createdOs,
-            'last_used_at' => $createdAt,
-            'last_used_os' => $createdOs,
+            'created_at'        => $createdAt,
+            'created_os'        => $createdOs,
+            'last_used_at'      => __('Last used during registration.', 'wp-passkeys'),
+            'last_used_os'      => __('Same as OS used during registration.', 'wp-passkeys'),
         ], ['%s']);
 
         // Check if the insert was successful, throw exception otherwise
@@ -259,33 +294,6 @@ class CredentialHelper implements CredentialHelperInterface
         );
     }
 
-    public function getPublicKeyCredentials(
-        AuthenticatorAttestationResponse $authenticatorAttestationResponse,
-        AttestationStatementSupportManager $supportManager,
-        ExtensionOutputCheckerHandler $checkerHandler
-    ): PublicKeyCredentialSource {
-        $authenticatorAttestationResponseValidator = new AuthenticatorAttestationResponseValidator(
-            $supportManager,
-            null,
-            null,
-            $checkerHandler,
-            null
-        );
-
-        $publicKeyCredentialCreationOptions = $this->getSessionCredentialOptions();
-
-        if ($publicKeyCredentialCreationOptions === null) {
-            throw new InvalidCredentialsException('Credential options not found in session.');
-        }
-
-        return $authenticatorAttestationResponseValidator->check(
-            $authenticatorAttestationResponse,
-            $publicKeyCredentialCreationOptions,
-            $this->utilities->getHostname(),
-            $this->utilities->isLocalhost() ? ["localhost"] : []
-        );
-    }
-
     /**
      * @throws JsonException
      */
@@ -320,8 +328,10 @@ class CredentialHelper implements CredentialHelperInterface
         if (is_wp_error($userId) && $userId->get_error_code() === 'existing_user_login') {
             return new WP_Error(
                 401,
-                'User already exists. If you want to update your passkeys, log in first and go to user settings.',
-                ['status' => 'user_not_authorized']
+                'The account already exists. To update your passkeys, ' .
+                'please log in and navigate to the user settings.' .
+                'Alternatively, you can reset your passkeys using the "Forgot Password" option.',
+                ['status' => 'user_exists']
             );
         }
 

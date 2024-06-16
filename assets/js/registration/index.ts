@@ -1,1 +1,3 @@
-import Registration from "./Registration";
+import EmailConfirmation from './EmailConfirmation';
+
+new EmailConfirmation().init();
