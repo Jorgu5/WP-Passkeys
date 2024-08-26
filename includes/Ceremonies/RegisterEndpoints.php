@@ -15,6 +15,7 @@ namespace WpPasskeys\Ceremonies;
 use Exception;
 use InvalidArgumentException;
 use JsonException;
+use Random\RandomException;
 use Throwable;
 use Webauthn\AuthenticatorAttestationResponse;
 use Webauthn\AuthenticatorAttestationResponseValidator;
@@ -36,7 +37,7 @@ use Webauthn\Denormalizer\WebauthnSerializerFactory;
 
 class RegisterEndpoints implements RegisterEndpointsInterface
 {
-    private array $response;
+    private array $response = []; // Inicjalizacja właściwości $response
 
     public function __construct(
         public readonly AuthenticatorAttestationResponseValidator $authenticatorAttestationResponseValidator,
@@ -73,6 +74,11 @@ class RegisterEndpoints implements RegisterEndpointsInterface
             ];
         } catch (Exception $e) {
             $this->utilities->handleException($e);
+            $this->response = [
+                'code'    => 500,
+                'message' => 'An error occurred while creating credentials options.',
+                'data'    => [],
+            ];
         }
 
         // Return a WP_REST_Response with the prepared response.
@@ -100,12 +106,12 @@ class RegisterEndpoints implements RegisterEndpointsInterface
             true
         );
 
-        $publicKeyCredentialCreationOptions->attestation =
-            PublicKeyCredentialCreationOptions::ATTESTATION_CONVEYANCE_PREFERENCE_NONE;
-
         return $publicKeyCredentialCreationOptions;
     }
 
+    /**
+     * @throws RandomException
+     */
     public function getChallenge(): string
     {
         return base64_encode(random_bytes(32));
@@ -178,9 +184,7 @@ class RegisterEndpoints implements RegisterEndpointsInterface
 
     public function getPublicKeyCredential(string $data): PublicKeyCredential
     {
-        $serializer = $this->serializer->create();
-
-        $publicKeyCredential = $serializer->deserialize(
+        $publicKeyCredential = $this->serializer->create()->deserialize(
             $data,
             PublicKeyCredential::class,
             'json'

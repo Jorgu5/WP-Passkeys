@@ -1,9 +1,9 @@
-import {
-	AuthenticationResponseJSON,
-	PublicKeyCredentialRequestOptionsJSON,
+import type {
+  AuthenticationResponseJSON,
+  PublicKeyCredentialRequestOptionsJSON,
 } from '@simplewebauthn/typescript-types';
 
-export type NotifyFunctionType = ( message: string, isSuccess: boolean ) => void;
+export type NotifyFunctionType = (message: string, isSuccess: boolean) => void;
 
 export enum NotificationStatus {
   Error = 'error',
@@ -37,9 +37,7 @@ export type userData = {
 export interface AuthenticatorInterface {
   generateOptions(): Promise<PublicKeyCredentialRequestOptionsJSON>;
 
-  init( isAutofill: boolean ): Promise<AuthenticationResponseJSON>;
+  init(isAutofill: boolean): Promise<AuthenticationResponseJSON>;
 
-  start( authResp: AuthenticationResponseJSON, id?: string ): Promise<void>;
-
-  verifyOptions( attResp: AuthenticationResponseJSON ): Promise<ApiResponse>;
+  start(authResp: AuthenticationResponseJSON, id?: string): Promise<void>;
 }

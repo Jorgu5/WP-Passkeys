@@ -13,6 +13,7 @@ namespace WpPasskeys\Ceremonies;
 use Exception;
 use InvalidArgumentException;
 use JsonException;
+use Random\RandomException;
 use Throwable;
 use Webauthn\AuthenticatorAssertionResponse;
 use Webauthn\AuthenticatorAssertionResponseValidator;
@@ -76,9 +77,12 @@ class AuthEndpoints implements AuthEndpointsInterface
         }
     }
 
+    /**
+     * @throws RandomException
+     */
     public function getChallenge(): string
     {
-        return random_bytes(self::CHALLENGE_LENGTH);
+        return base64_encode(random_bytes(self::CHALLENGE_LENGTH));
     }
 
     public function verifyPublicKeyCredentials(WP_REST_Request $request): WP_REST_Response|WP_Error
@@ -143,8 +147,12 @@ class AuthEndpoints implements AuthEndpointsInterface
         AuthenticatorAssertionResponse $authenticatorAssertionResponse,
         WP_REST_Request $request
     ): void {
+        $credentialId = $this->getPublicKeyCredential($request)->rawId;
+        if ($credentialId === '') {
+            throw new InvalidCredentialsException('You do not have any passkeys registered.');
+        }
         $publicKeyCredentialSource = $this->credentialHelper->findOneByCredentialId(
-            $this->getPublicKeyCredential($request)->id
+            $this->getPublicKeyCredential($request)->rawId,
         );
         if ($publicKeyCredentialSource === null) {
             throw new InvalidCredentialsException('Credentials for this username have not been found in the database.');

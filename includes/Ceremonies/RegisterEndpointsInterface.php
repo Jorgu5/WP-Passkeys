@@ -4,7 +4,6 @@ namespace WpPasskeys\Ceremonies;
 
 use Exception;
 use RuntimeException;
-use Symfony\Component\Serializer\SerializerInterface;
 use Throwable;
 use Webauthn\AttestationStatement\AttestationStatementSupportManager;
 use Webauthn\AuthenticatorAttestationResponse;
@@ -37,11 +36,6 @@ interface RegisterEndpointsInterface
      * @return WP_Error|WP_REST_Response a REST response object with the result.
      */
     public function verifyPublicKeyCredentials(WP_REST_Request $request): WP_Error|WP_REST_Response;
-
-    /**
-     * @throws Exception
-     */
-    public function getChallenge(): string;
 
     /**
      * @throws InvalidDataException

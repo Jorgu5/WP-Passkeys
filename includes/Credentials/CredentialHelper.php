@@ -13,11 +13,6 @@ namespace WpPasskeys\Credentials;
 use DateTime;
 use InvalidArgumentException;
 use JsonException;
-use Throwable;
-use Webauthn\AttestationStatement\AttestationStatementSupportManager;
-use Webauthn\AuthenticatorAttestationResponse;
-use Webauthn\AuthenticatorAttestationResponseValidator;
-use Webauthn\CeremonyStep\CeremonyStepManagerFactory;
 use Webauthn\Exception\InvalidDataException;
 use Webauthn\PublicKeyCredentialCreationOptions;
 use Webauthn\PublicKeyCredentialSource;
@@ -26,6 +21,7 @@ use wpdb;
 use WpPasskeys\Exceptions\InvalidCredentialsException;
 use WpPasskeys\Exceptions\InvalidUserDataException;
 use WpPasskeys\Utilities;
+use Webauthn\Denormalizer\WebauthnSerializerFactory;
 
 class CredentialHelper implements CredentialHelperInterface
 {
@@ -34,7 +30,8 @@ class CredentialHelper implements CredentialHelperInterface
 
     public function __construct(
         private readonly SessionHandlerInterface $sessionHandler,
-        private readonly Utilities $utilities
+        private readonly Utilities $utilities,
+        private readonly WebauthnSerializerFactory $serializer
     ) {
         global $wpdb;
         $this->wpdb = $wpdb;
@@ -269,7 +266,10 @@ class CredentialHelper implements CredentialHelperInterface
         $this->sessionHandler->start();
         $this->sessionHandler->set(
             'webauthn_credential_options',
-            json_encode($publicKeyCredentialCreationOptions, JSON_THROW_ON_ERROR)
+            $this->serializer->create()->serialize(
+                $publicKeyCredentialCreationOptions,
+                'json'
+            )
         );
     }
 
@@ -300,8 +300,10 @@ class CredentialHelper implements CredentialHelperInterface
     public function getSessionCredentialOptions(): ?PublicKeyCredentialCreationOptions
     {
         if ($this->sessionHandler->has('webauthn_credential_options')) {
-            return PublicKeyCredentialCreationOptions::createFromString(
-                $this->sessionHandler->get('webauthn_credential_options')
+            return $this->serializer->create()->deserialize(
+                $this->sessionHandler->get('webauthn_credential_options'),
+                PublicKeyCredentialCreationOptions::class,
+                'json'
             );
         }
 

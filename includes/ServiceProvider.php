@@ -110,39 +110,29 @@ class ServiceProvider extends AbstractServiceProvider
 
         $container->add(AuthenticatorAttestationResponseValidator::class, function () use ($container) {
             return new AuthenticatorAttestationResponseValidator(
-                null, // Deprecated
-                null, // Deprecated
-                null, // Deprecated
-                null, // Deprecated
-                null, // Deprecated
                 $container->get('creationCeremony')
             );
         });
 
         $container->add(AuthenticatorAssertionResponseValidator::class, function () use ($container) {
             return new AuthenticatorAssertionResponseValidator(
-                null, // Deprecated
-                null, // Deprecated
-                null, // Deprecated
-                null, // Deprecated
-                null, // Deprecated
                 $container->get('requestCeremony')
             );
         });
 
-        $container->add(WebauthnSerializerFactory::class)
-                  ->addArgument(AttestationStatementSupportManager::class);
+        $container->add(WebauthnSerializerFactory::class)->addArgument(AttestationStatementSupportManager::class);
         $container->add(EmailConfirmation::class);
         $container->add(PasskeysInfoRender::class);
         $container->add(UserPasskeysCardRender::class)->addArgument(CredentialHelperInterface::class);
         $container->add(UsernameHandler::class)->addArgument(SessionHandlerInterface::class);
         $container->add(AttestationObjectLoader::class)->addArgument(AttestationStatementSupportManager::class);
-        $container->add(WebauthnSerializerFactory::class)->addArgument(AttestationStatementSupportManager::class);
         $container->add(ExtensionOutputCheckerHandler::class, ExtensionOutputCheckerHandler::create());
-        $container->add(CredentialHelperInterface::class, CredentialHelper::class)->addArguments([
-            SessionHandlerInterface::class,
-            Utilities::class,
-        ]);
+        $container->add(CredentialHelperInterface::class, CredentialHelper::class)
+            ->addArguments([
+                SessionHandlerInterface::class,
+                Utilities::class,
+                WebauthnSerializerFactory::class,
+            ]);
         $container->add(CredentialEntityInterface::class, CredentialEntity::class)->addArgument(Utilities::class);
         $container->add(PublicKeyCredentialParameters::class)->addArguments([
             AlgorithmManagerInterface::class,
@@ -183,6 +173,7 @@ class ServiceProvider extends AbstractServiceProvider
             AuthEndpointsInterface::class,
             RegisterEndpointsInterface::class,
             CredentialEndpointsInterface::class,
+            SessionHandlerInterface::class,
         ]);
 
         $container->add(UserSettings::class)->addArguments([

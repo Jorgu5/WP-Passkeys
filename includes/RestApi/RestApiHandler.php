@@ -5,7 +5,7 @@ namespace WpPasskeys\RestApi;
 use ReflectionClass;
 use ReflectionException;
 use WpPasskeys\Credentials\CredentialEndpointsInterface;
-use WpPasskeys\Credentials\SessionHandler;
+use WpPasskeys\Credentials\SessionHandlerInterface;
 use WpPasskeys\Ceremonies\AuthEndpointsInterface;
 use WpPasskeys\Ceremonies\RegisterEndpointsInterface;
 
@@ -13,6 +13,7 @@ use WpPasskeys\Ceremonies\RegisterEndpointsInterface;
  * @property AuthEndpointsInterface $authEndpoints
  * @property RegisterEndpointsInterface $registerEndpoints
  * @property CredentialEndpointsInterface $credentialEndpoints
+ * @property SessionHandlerInterface $sessionHandler
  */
 class RestApiHandler extends AbstractApiHandler
 {
@@ -24,10 +25,16 @@ class RestApiHandler extends AbstractApiHandler
         private readonly AuthEndpointsInterface $authEndpoints,
         private readonly RegisterEndpointsInterface $registerEndpoints,
         private readonly CredentialEndpointsInterface $credentialEndpoints,
+        private readonly SessionHandlerInterface $sessionHandler,
     ) {
         add_action('rest_api_init', [$this, 'registerAuthRoutes']);
-        (new SessionHandler())->start();
+        add_action('init', [$this, 'initSession']);
     }
+
+    public function initSession(): void
+{
+    $this->sessionHandler->start();
+}
 
     public function registerAuthRoutes(): void
     {

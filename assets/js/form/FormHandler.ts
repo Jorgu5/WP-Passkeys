@@ -58,13 +58,7 @@ export class FormHandler {
 			const wrapper = this.createWrapper();
 			this.wrapButtons( wrapper, submitButton, this.passkeysButton );
 			this.appendToForms( wrapper );
-			this.fetchAndFillUserCredentials()
-				.then( () => {
-					console.log( 'User credentials fetched and filled' );
-				} )
-				.catch( ( error ) => {
-					console.error( 'Error fetching and filling user credentials:', error );
-				} );
+			this.fetchAndFillUserCredentials();
 		}
 
 		// Pass the button element directly
@@ -89,17 +83,27 @@ export class FormHandler {
 				},
 			} );
 
-			if ( ! response.ok ) {
+			if ( response.status === 204 ) {
+				console.log( 'No user data.' );
 				return;
+			}
+
+			if ( ! response.ok ) {
+				throw new Error( `HTTP Error. Status: ${ response.status }` );
 			}
 
 			const { data } = await response.json();
 
 			if ( data && data.user_credentials ) {
 				this.fillFormWithUserCredentials( data.user_credentials );
+			} else {
+				console.log( 'No authentication user data.' );
 			}
 		} catch ( error ) {
-			console.error( 'Error fetching user credentials:', error );
+			console.error(
+				'Błąd podczas pobierania danych uwierzytelniających użytkownika:',
+				error,
+			);
 		}
 	}
 

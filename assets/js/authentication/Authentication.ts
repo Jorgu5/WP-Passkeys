@@ -16,7 +16,7 @@ export default class Authentication implements AuthenticatorInterface {
 		this.context = pkUser as contextType;
 	}
 
-	async generateOptions(): Promise<never> {
+	async generateOptions(): Promise<any> {
 		const response: Response = await fetch(
 			this.context.restEndpoints.main + '/authenticator/options',
 		);
@@ -68,16 +68,13 @@ export default class Authentication implements AuthenticatorInterface {
 			);
 			return Promise.resolve( null as unknown as AuthenticationResponseJSON );
 		}
-
 		try {
 			const authOptions = await this.generateOptions();
-			console.log( authOptions );
 			const authResp = await startAuthentication( authOptions, isAutofill );
-			console.log( authResp );
 			if ( authResp ) {
 				const { id } = authResp;
 				await this.start( authResp, id );
-				return authResp; // Assuming this is a valid AuthenticationResponseJSON
+				return authResp;
 			}
 			// In case authResp is falsy, we return a default value
 			return Promise.resolve( null as unknown as AuthenticationResponseJSON );

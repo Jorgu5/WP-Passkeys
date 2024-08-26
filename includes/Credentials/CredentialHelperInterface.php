@@ -4,14 +4,9 @@ namespace WpPasskeys\Credentials;
 
 use Exception;
 use JsonException;
-use Throwable;
-use Webauthn\AttestationStatement\AttestationStatementSupportManager;
-use Webauthn\AuthenticationExtensions\ExtensionOutputCheckerHandler;
-use Webauthn\AuthenticatorAttestationResponse;
 use Webauthn\Exception\InvalidDataException;
 use Webauthn\PublicKeyCredentialCreationOptions;
 use Webauthn\PublicKeyCredentialSource;
-use Webauthn\PublicKeyCredentialUserEntity;
 use WP_Error;
 use WpPasskeys\Exceptions\InvalidCredentialsException;
 
@@ -67,7 +62,6 @@ interface CredentialHelperInterface
      * Retrieves the session credential data.
      *
      * @return PublicKeyCredentialCreationOptions|null The credential data, or null if not found.
-     * @throws InvalidDataException
      */
     public function getSessionCredentialOptions(): ?PublicKeyCredentialCreationOptions;
 

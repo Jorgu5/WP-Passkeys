@@ -72,8 +72,5 @@ interface AuthEndpointsInterface
      */
     public function requestOptions(): PublicKeyCredentialRequestOptions|WP_Error;
 
-    /**
-     * @throws Exception
-     */
     public function getChallenge(): string;
 }
