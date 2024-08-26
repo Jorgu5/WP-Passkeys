@@ -1,5 +1,5 @@
 # Dockerfile
-FROM wordpress:php8.1-apache
+FROM wordpress:php8.2-apache
 
 ARG PLUGIN_NAME=wp-passkeys
 
@@ -31,11 +31,13 @@ RUN php -r "copy('https://getcomposer.org/installer', 'composer-setup.php');" \
         && chmod ugo+x /usr/local/bin/composer \
         && echo "*** composer command installed"
 
+        RUN a2ensite default-ssl
 RUN a2enmod ssl && a2enmod rewrite
 RUN mkdir -p /etc/apache2/ssl
 
 COPY ./certs /etc/apache2/ssl/
 COPY ./apache/000-default.conf /etc/apache2/sites-available/000-default.conf
+COPY ./apache/default-ssl.conf /etc/apache2/sites-available/default-ssl.conf
 
 # Create testing environment
 COPY --chmod=755 bin/install-wp-tests.sh /usr/local/bin/

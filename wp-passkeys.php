@@ -34,3 +34,9 @@ try {
 } catch (NotFoundExceptionInterface | ContainerExceptionInterface $e) {
     echo $e->getMessage();
 }
+
+if (!isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && !is_ssl()) {
+    $redirect = 'https://' . $_SERVER['HTTP_HOST'] . $_SERVER['REQUEST_URI'];
+    wp_redirect($redirect, 301);
+    exit;
+}

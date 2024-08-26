@@ -34,13 +34,17 @@ services:
       WORDPRESS_DEBUG_DISPLAY: 1
       XDEBUG_CONFIG: "remote_host=192.168.0.31"
       PHP_IDE_CONFIG: "serverName=localhost"
+      WORDPRESS_CONFIG_EXTRA: |
+        define('FORCE_SSL_ADMIN', true);
+        define('WP_HOME', 'https://localhost');
+        define('WP_SITEURL', 'https://localhost');
     volumes:
       - ./wp:/var/www/html
       - ./:/var/www/html/wp-content/plugins/wp-passkeys
       - ./certs:/etc/apache2/ssl
     ports:
-      - "8081:80"
-      - "444:443"
+      - "80:80"
+      - "443:443"
     depends_on:
       - db
   mailhog:
