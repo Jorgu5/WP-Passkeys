@@ -1,10 +1,15 @@
 {
   "compilerOptions": {
-    "target": "es2021",
+    "target": "es2023",
     "strict": true,
-    "types": [ "node" ],
-    "typeRoots": [ "../node_modules/@types" ],
+    "types": [
+      "node"
+    ],
+    "typeRoots": [
+      "../node_modules/@types"
+    ],
     "moduleResolution": "Node",
-    "allowSyntheticDefaultImports": true
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true
   }
 }

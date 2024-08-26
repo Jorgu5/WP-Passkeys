@@ -12,3 +12,5 @@ bin/create-cert.sh
 .phpunit.cache
 apache/
 qodana.yaml
+composer.lock
+yarn.lock
