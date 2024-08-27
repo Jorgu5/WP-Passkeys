@@ -163,7 +163,7 @@ class CredentialHelper implements CredentialHelperInterface
         $this->wpdb->insert('wp_pk_credential_sources', [
             'email'             => $email,
             'pk_credential_id'  => $pkCredentialId,
-            'credential_source' => json_encode($publicKeyCredentialSource, JSON_THROW_ON_ERROR),
+            'credential_source' => $publicKeyCredentialSource,
             'created_at'        => $createdAt,
             'created_os'        => $createdOs,
             'last_used_at'      => __('Last used during registration.', 'wp-passkeys'),
@@ -256,20 +256,13 @@ class CredentialHelper implements CredentialHelperInterface
         return true;
     }
 
-
-    /**
-     * @throws JsonException
-     */
     public function saveSessionCredentialOptions(
-        PublicKeyCredentialCreationOptions $publicKeyCredentialCreationOptions
+        string $publicKeyCredentialCreationOptions
     ): void {
         $this->sessionHandler->start();
         $this->sessionHandler->set(
             'webauthn_credential_options',
-            $this->serializer->create()->serialize(
-                $publicKeyCredentialCreationOptions,
-                'json'
-            )
+            $publicKeyCredentialCreationOptions
         );
     }
 
@@ -300,8 +293,9 @@ class CredentialHelper implements CredentialHelperInterface
     public function getSessionCredentialOptions(): ?PublicKeyCredentialCreationOptions
     {
         if ($this->sessionHandler->has('webauthn_credential_options')) {
+            $serializedOptions = $this->sessionHandler->get('webauthn_credential_options');
             return $this->serializer->create()->deserialize(
-                $this->sessionHandler->get('webauthn_credential_options'),
+                $serializedOptions,
                 PublicKeyCredentialCreationOptions::class,
                 'json'
             );

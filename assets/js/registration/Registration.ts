@@ -2,17 +2,21 @@ import {
 	PublicKeyCredentialCreationOptionsJSON,
 	RegistrationResponseJSON,
 } from '@simplewebauthn/typescript-types';
-import { startRegistration } from '@simplewebauthn/browser';
+import {
+	startRegistration,
+	base64URLStringToBuffer,
+} from '@simplewebauthn/browser';
 import { ApiResponse, contextType } from '../WebauthnTypes';
 import Utilities from '../Utilities';
 
 interface RegistrationOptions {
-  message: string;
-  data: {
-    credentials: PublicKeyCredentialCreationOptionsJSON;
-    email?: string;
-    username?: string;
-  };
+	code: number;
+	message: string;
+	data: {
+		credentials: string;
+		email?: string;
+		username?: string;
+	};
 }
 
 export default class Registration {
@@ -28,12 +32,12 @@ export default class Registration {
 		this.context = pkUser as contextType;
 		this.headers = {
 			'Content-Type': 'application/json',
-			...( this.context.nonce ? { 'X-WP-Nonce': this.context.nonce } : {} ),
+			...(this.context.nonce ? { 'X-WP-Nonce': this.context.nonce } : {}),
 		};
-		this.isAdmin = Boolean( this.context.nonce );
+		this.isAdmin = Boolean(this.context.nonce);
 	}
 
-	handleNotification( message: string, type: 'Success' | 'Error' ) {
+	handleNotification(message: string, type: 'Success' | 'Error') {
 		Utilities.setNotification(
 			message,
 			type,
@@ -43,8 +47,8 @@ export default class Registration {
 	}
 
 	async generateOptions(): Promise<RegistrationOptions> {
-		const url = `${ this.context.restEndpoints.main }/register/options`;
-		return this.fetchWrapper( url, { method: 'GET', headers: this.headers } );
+		const url = `${this.context.restEndpoints.main}/register/options`;
+		return this.fetchWrapper(url, { method: 'GET', headers: this.headers });
 	}
 
 	async verifyOptions(
@@ -52,22 +56,24 @@ export default class Registration {
 		email?: string,
 		username?: string,
 	): Promise<ApiResponse> {
-		const url = `${ this.context.restEndpoints.main }/register/verify?email=${ email }&username=${ username }`;
-		return this.fetchWrapper( url, {
+		const url = `${this.context.restEndpoints.main}/register/verify?email=${email}&username=${username}`;
+		return this.fetchWrapper(url, {
 			method: 'POST',
 			headers: this.headers,
-			body: JSON.stringify( attResp ),
-		} );
+			body: JSON.stringify(attResp),
+		});
 	}
 
 	async start(): Promise<ApiResponse | void> {
 		try {
 			const { code, data, message } = await this.generateOptions();
-			if ( code === 202 ) {
-				Utilities.setNotification( message, 'Success', this.registerWrapper );
+			if (code === 202) {
+				Utilities.setNotification(message, 'Success', this.registerWrapper);
 			}
 
-			const attResp = await startRegistration( data.credentials );
+			const credentialsOptionsJSON = JSON.parse(data.credentials);
+
+			const attResp = await startRegistration(credentialsOptionsJSON);
 			const verificationJSON = await this.verifyOptions(
 				attResp,
 				data.email,
@@ -75,49 +81,50 @@ export default class Registration {
 			);
 			if (
 				verificationJSON.message &&
-        verificationJSON.code !== 200 &&
-        verificationJSON.code !== 202
+				verificationJSON.code !== 200 &&
+				verificationJSON.code !== 202
 			) {
-				this.handleNotification( verificationJSON.message, 'Error' );
+				this.handleNotification(verificationJSON.message, 'Error');
 				return;
 			}
 
 			// Handle success or redirection
-			if ( verificationJSON.data?.redirectUrl && ! this.isAdmin ) {
+			if (verificationJSON.data?.redirectUrl && !this.isAdmin) {
 				window.location.href = verificationJSON.data.redirectUrl;
 			} else {
-				this.handleNotification( verificationJSON.message, 'Success' );
+				this.handleNotification(verificationJSON.message, 'Success');
 			}
-		} catch ( error ) {
-			console.log( 'An error occurred during registration:', error );
+		} catch (error) {
+			console.log('An error occurred during registration:', error);
 		}
 	}
 
-	private async fetchWrapper( url: string, options: RequestInit ): Promise<any> {
-		const response = await fetch( url, options );
-		if ( ! response.ok ) {
+
+	private async fetchWrapper(url: string, options: RequestInit): Promise<any> {
+		const response = await fetch(url, options);
+		if (!response.ok) {
 			const errorResponse = await response.json();
-			if ( response.status === 409 ) {
+			if (response.status === 409) {
 				Utilities.setNotification(
 					errorResponse.message,
 					'Error',
 					this.registerWrapper,
 				);
 
-				if ( errorResponse.message.includes( 'Email' ) ) {
+				if (errorResponse.message.includes('Email')) {
 					const emailInput = this.registerWrapper.querySelector(
 						'#user_email',
 					) as HTMLInputElement;
-					emailInput.classList.add( 'error' );
+					emailInput.classList.add('error');
 				}
 
-				if ( errorResponse.message.includes( 'Username' ) ) {
+				if (errorResponse.message.includes('Username')) {
 					const usernameInput = this.registerWrapper.querySelector(
 						'#user_login',
 					) as HTMLInputElement;
-					usernameInput.classList.add( 'error' );
+					usernameInput.classList.add('error');
 				}
-			} else if ( response.status === 426 ) {
+			} else if (response.status === 426) {
 				Utilities.setNotification(
 					'Enable HTTPS to use WebAuthn.',
 					'Error',
@@ -125,7 +132,7 @@ export default class Registration {
 				);
 			}
 			throw new Error(
-				`Server returned ${ response.status }: ${ errorResponse.message }`,
+				`Server returned ${response.status}: ${errorResponse.message}`,
 			);
 		}
 		return response.json();

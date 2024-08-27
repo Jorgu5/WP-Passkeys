@@ -55,7 +55,7 @@ interface CredentialHelperInterface
     ): void;
 
     public function saveSessionCredentialOptions(
-        PublicKeyCredentialCreationOptions $publicKeyCredentialCreationOptions
+        string $publicKeyCredentialCreationOptions
     ): void;
 
     /**

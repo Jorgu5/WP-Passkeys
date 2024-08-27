@@ -61,6 +61,7 @@ class RegisterEndpoints implements RegisterEndpointsInterface
             ['user_login' => $username, 'user_email' => $email] = $this->usernameHandler->getOrCreateUserData();
 
             $publicKeyCredentialCreationOptions = $this->creationOptions($username);
+            $publicKeyCredentialCreationOptions = $this->serializer->create()->serialize($publicKeyCredentialCreationOptions, 'json');
             $this->credentialHelper->saveSessionCredentialOptions($publicKeyCredentialCreationOptions);
 
             $this->response = [
@@ -114,7 +115,7 @@ class RegisterEndpoints implements RegisterEndpointsInterface
      */
     public function getChallenge(): string
     {
-        return base64_encode(random_bytes(32));
+        return random_bytes(32);
     }
 
     public function getTimeout(): int
@@ -125,18 +126,17 @@ class RegisterEndpoints implements RegisterEndpointsInterface
     public function verifyPublicKeyCredentials(WP_REST_Request $request): WP_REST_Response
     {
         try {
-            $pkCredential          = $this->getPublicKeyCredential($request->get_body());
-            $pkKeyCredentialSource = $this->validateAuthenticatorAttestationResponse($pkCredential);
+            $publicKeyCredentials = $request->get_body();
+            $publicKeyCredentialsId = json_decode($publicKeyCredentials, false, 512, JSON_THROW_ON_ERROR)->id;
+            $publicKeyCredentialSource = $this->validateAuthenticatorAttestationResponse($publicKeyCredentials);
             $email                 = (string)$request->get_param('email');
             $username              = (string)$request->get_param('username');
 
-            // Prepare credential ID and save credential source.
-            $pkCredentialId = $this->utilities->safeEncode($pkKeyCredentialSource->publicKeyCredentialId);
-            $this->credentialHelper->saveCredentialSource($pkKeyCredentialSource, $pkCredentialId, $email);
+            $this->credentialHelper->saveCredentialSource($publicKeyCredentialSource, $publicKeyCredentialsId, $email);
 
             // If the email is empty, immediately handle user creation.
             if (empty($email)) {
-                $this->response = $this->handleUserCreation($pkCredentialId);
+                $this->response = $this->handleUserCreation($publicKeyCredentialsId);
 
                 return new WP_REST_Response($this->response, $this->response['code']);
             }
@@ -182,6 +182,27 @@ class RegisterEndpoints implements RegisterEndpointsInterface
         }
     }
 
+    /**
+     * @throws Throwable
+     * @throws InvalidCredentialsException
+     * @throws JsonException
+     */
+    public function validateAuthenticatorAttestationResponse(string|PublicKeyCredential $publicKeyCredential): PublicKeyCredentialSource
+    {
+        $publicKeyCredentialJSON = $this->getPublicKeyCredential($publicKeyCredential);
+        $publicKeyCredentialCreationOptions = $this->credentialHelper->getSessionCredentialOptions();
+
+        if ($publicKeyCredentialCreationOptions === null) {
+            throw new InvalidCredentialsException('Credential options not found in session.');
+        }
+
+        return $this->authenticatorAttestationResponseValidator->check(
+            $this->getAuthenticatorAttestationResponse($publicKeyCredentialJSON),
+            $publicKeyCredentialCreationOptions,
+            $this->utilities->getHostname(),
+        );
+    }
+
     public function getPublicKeyCredential(string $data): PublicKeyCredential
     {
         $publicKeyCredential = $this->serializer->create()->deserialize(
@@ -195,26 +216,6 @@ class RegisterEndpoints implements RegisterEndpointsInterface
         }
 
         return $publicKeyCredential;
-    }
-
-    /**
-     * @throws Throwable
-     * @throws InvalidCredentialsException
-     * @throws JsonException
-     */
-    public function validateAuthenticatorAttestationResponse(PublicKeyCredential $publicKeyCredential): PublicKeyCredentialSource
-    {
-        $publicKeyCredentialCreationOptions = $this->credentialHelper->getSessionCredentialOptions();
-
-        if ($publicKeyCredentialCreationOptions === null) {
-            throw new InvalidCredentialsException('Credential options not found in session.');
-        }
-
-        return $this->authenticatorAttestationResponseValidator->check(
-            $this->getAuthenticatorAttestationResponse($publicKeyCredential),
-            $publicKeyCredentialCreationOptions,
-            $this->utilities->getHostname(),
-        );
     }
 
     public function getAuthenticatorAttestationResponse(

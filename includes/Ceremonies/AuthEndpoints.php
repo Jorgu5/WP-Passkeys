@@ -149,13 +149,19 @@ class AuthEndpoints implements AuthEndpointsInterface
     ): void {
         $credentialId = $this->getPublicKeyCredential($request)->rawId;
         if ($credentialId === '') {
-            throw new InvalidCredentialsException('You do not have any passkeys registered.');
+            throw new InvalidCredentialsException(
+                'You do not have any passkeys registered.',
+                403
+            );
         }
         $publicKeyCredentialSource = $this->credentialHelper->findOneByCredentialId(
             $this->getPublicKeyCredential($request)->rawId,
         );
         if ($publicKeyCredentialSource === null) {
-            throw new InvalidCredentialsException('Credentials for this username have not been found in the database.');
+            throw new InvalidCredentialsException(
+                'Passkeys are not registered on this device.',
+                403
+            );
         }
         $this->authenticatorAssertionResponseValidator->check(
             $publicKeyCredentialSource,
