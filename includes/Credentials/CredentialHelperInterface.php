@@ -87,19 +87,4 @@ interface CredentialHelperInterface
     public function updateExistingUserWithPkCredentialId(int $userId, string $publicKeyCredentialId): int|WP_Error;
 
     public function findCredentialIdByEmail(string $email): string;
-
-    /**
-     * Updates the credential source data with the last used time and OS.
-     *
-     * @param string $credentialId The credential ID to update.
-     * @return void
-     */
-    public function updateCredentialSourceData(string $credentialId): void;
-
-    /**
-     * Gets the user login from the session.
-     *
-     * @return string The user login.
-     */
-    public function getSessionUserLogin(): string;
 }

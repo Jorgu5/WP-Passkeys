@@ -28,21 +28,9 @@ export default class Utilities {
 	public static setNotification(
 		message: string,
 		type: keyof typeof NotificationStatus,
-		target: HTMLElement | null,
+		target: HTMLElement,
 		context?: string,
 	): void {
-		// If target is null, try to find a fallback element
-		if (!target) {
-			console.warn('Target element for notification is null, trying to find fallback element');
-			target = document.querySelector('#loginform') || document.querySelector('body');
-			
-			// If still no target found, log error and return
-			if (!target) {
-				console.error('Cannot display notification: No valid target element found');
-				return;
-			}
-		}
-
 		const existingNotifications = target.parentNode?.querySelectorAll(
 			`.notice.notice-${ NotificationStatus[ type ] }`,
 		);
@@ -78,9 +66,6 @@ export default class Utilities {
 
 		if ( target.parentNode ) {
 			target.parentNode.insertBefore( notificationWrapper, target );
-		} else {
-			// If target has no parent, append to target itself
-			target.appendChild( notificationWrapper );
 		}
 	}
 }

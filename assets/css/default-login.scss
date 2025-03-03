@@ -1,45 +1,19 @@
 #registerform,
 #loginform {
-  position: relative;
-  
   .passkeys-button {
-    background-color: #fff;
-    border: 2px solid #2271b1;
-    border-radius: 4px;
-    color: #2271b1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: 500;
-    margin-bottom: 16px;
-    padding: 10px 16px;
-    transition: all 0.2s ease;
-    width: 100%;
-    
-    .passkeys-button-icon {
+	background-color: transparent;
 	background-image: url('../img/icon-passkey.svg');
-      background-position: center;
+	background-position: 5px center;
 	background-repeat: no-repeat;
-      background-size: contain;
-      display: inline-block;
-      height: 20px;
-      margin-right: 8px;
-      width: 20px;
-    }
+	background-size: 18px;
+	border: 2px solid #000;
+	color: #000;
+	padding-left: 25px;
 
 	&:hover,
+	&:active,
 	&:focus {
-      background-color: #f0f6fc;
-      border-color: #135e96;
-      color: #135e96;
-      box-shadow: 0 0 0 1px #135e96;
-    }
-    
-    &:active {
-      background-color: #e5f0fa;
-      border-color: #0a4b78;
-      color: #0a4b78;
-      transform: translateY(1px);
+	  border-style: dashed;
 	}
   }
 
@@ -53,32 +27,16 @@
 	width: 100%;
   }
 
-  .description {
-    color: #646970;
-    font-size: 12px;
-    font-style: italic;
-    display: block;
-    margin: 4px 0 0;
-  }
-  
-  .passkeys-separator {
-    display: flex;
+  .passkeys-login {
+	&__wrapper {
 	  align-items: center;
-    margin: 20px 0;
-    text-align: center;
-    
-    &::before,
-    &::after {
-      content: '';
-      flex: 1;
-      border-bottom: 1px solid #c3c4c7;
-    }
-    
-    .passkeys-separator-text {
-      margin: 0 10px;
-      color: #646970;
-      font-size: 13px;
-      text-transform: uppercase;
+	  display: flex;
+	  gap: 10px;
+	  justify-content: flex-end;
+
+	  > .submit {
+		float: none;
+	  }
 	}
   }
 }
@@ -91,18 +49,11 @@
 
   .message.error,
   input.error {
-    border-color: #d63638;
-    background-color: #fcf0f1;
+	border-color: #f00;
   }
 
   input.success {
-    border-color: #00a32a;
-    background-color: #f0f6ea;
-  }
-  
-  .message.passkeys-message {
-    background-color: #f0f6fc;
-    border-left-color: #2271b1;
+	border-color: #0f0;
   }
 }
 
@@ -117,61 +68,4 @@
 #login,
 #register {
   width: 430px;
-}
-
-/* Loading indicator */
-.passkeys-loading {
-  position: fixed;
-  inset: 0;
-  background-color: rgb(255 255 255 / 80%);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  z-index: 9999;
-  
-  &-spinner {
-    width: 40px;
-    height: 40px;
-    border: 4px solid #f3f3f3;
-    border-top: 4px solid #2271b1;
-    border-radius: 50%;
-    animation: spin 1s linear infinite;
-    margin-bottom: 16px;
-  }
-  
-  &-text {
-    color: #2c3338;
-    font-size: 16px;
-    font-weight: 500;
-  }
-}
-
-/* Status message */
-.passkeys-status {
-  margin-top: 8px;
-  padding: 8px;
-  border-radius: 4px;
-  font-size: 14px;
-  text-align: center;
-  
-  &.success {
-    background-color: #f0f6ea;
-    color: #00a32a;
-  }
-  
-  &.error {
-    background-color: #fcf0f1;
-    color: #d63638;
-  }
-  
-  &.info {
-    background-color: #f0f6fc;
-    color: #2271b1;
-  }
-}
-
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
 }
