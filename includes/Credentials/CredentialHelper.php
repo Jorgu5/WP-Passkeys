@@ -177,29 +177,33 @@ class CredentialHelper implements CredentialHelperInterface
     }
 
     /**
-     * @throws InvalidDataException
-     * @throws InvalidCredentialsException
-     * @throws JsonException
+     * Updates the credential source data with the last used time and OS.
+     * 
+     * @param string $credentialId The credential ID to update.
+     * @return void
      */
     public function updateCredentialSourceData(string $credentialId): void
     {
         $safeEncodedPkId = $this->utilities->safeEncode($credentialId);
 
+        // If we find the credential, update its usage data
         if ($this->findOneByCredentialId($safeEncodedPkId)) {
-            return;
-        }
+            $updateResult = $this->wpdb->update(
+                'wp_pk_credential_sources',
+                [
+                    'last_used_at' => time(),
+                    'last_used_os' => $this->utilities->getDeviceOS(),
+                ],
+                ['pk_credential_id' => $safeEncodedPkId]
+            );
 
-        $updateResult = $this->wpdb->update(
-            'wp_pk_credential_sources',
-            [
-                'last_used_at' => time(),
-                'last_used_os' => $this->utilities->getDeviceOS(),
-            ],
-            ['pk_credential_id' => $safeEncodedPkId]
-        );
-
-        if ($updateResult === false) {
-            throw new InvalidCredentialsException('Failed to update credential usage.');
+            // Log the update failure but don't throw an exception
+            if ($updateResult === false) {
+                error_log('Failed to update credential usage for ID: ' . $safeEncodedPkId);
+            }
+        } else {
+            // Log that the credential was not found but don't throw an exception
+            error_log('Credential not found for ID: ' . $safeEncodedPkId);
         }
     }
 
@@ -281,9 +285,9 @@ class CredentialHelper implements CredentialHelperInterface
         }
 
         return new WP_Error(
-            204,
-            'No user found with this credential ID.',
-            ['status' => 'no_user_found']
+            'user_not_found',
+            'No user found with this credential ID. Please register a passkey first.',
+            ['status' => 404]
         );
     }
 
@@ -325,8 +329,8 @@ class CredentialHelper implements CredentialHelperInterface
             return new WP_Error(
                 401,
                 'The account already exists. To update your passkeys, ' .
-                'please log in and navigate to the user settings.' .
-                'Alternatively, you can reset your passkeys using the "Forgot Password" option.',
+                    'please log in and navigate to the user settings.' .
+                    'Alternatively, you can reset your passkeys using the "Forgot Password" option.',
                 ['status' => 'user_exists']
             );
         }

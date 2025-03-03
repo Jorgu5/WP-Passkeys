@@ -27,14 +27,21 @@ class RestApiHandler extends AbstractApiHandler
         private readonly CredentialEndpointsInterface $credentialEndpoints,
         private readonly SessionHandlerInterface $sessionHandler,
     ) {
+        // Initialize session as early as possible
+        $this->initSession();
+
+        // Register REST API routes
         add_action('rest_api_init', [$this, 'registerAuthRoutes']);
-        add_action('init', [$this, 'initSession']);
+
+        // Add a fallback for session initialization
+        add_action('init', [$this, 'initSession'], 1);
     }
 
     public function initSession(): void
-{
-    $this->sessionHandler->start();
-}
+    {
+        error_log('[WP Passkeys] Initializing session from ' . debug_backtrace()[1]['function'] ?? 'unknown');
+        $this->sessionHandler->start();
+    }
 
     public function registerAuthRoutes(): void
     {

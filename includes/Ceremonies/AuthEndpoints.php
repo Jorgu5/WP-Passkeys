@@ -31,6 +31,7 @@ use WpPasskeys\Exceptions\InvalidCredentialsException;
 use WpPasskeys\Exceptions\InvalidUserDataException;
 use WpPasskeys\Utilities;
 use Webauthn\Denormalizer\WebauthnSerializerFactory;
+use function random_bytes;
 
 class AuthEndpoints implements AuthEndpointsInterface
 {
@@ -78,16 +79,22 @@ class AuthEndpoints implements AuthEndpointsInterface
     }
 
     /**
-     * @throws RandomException
+     * Generate a random challenge for WebAuthn authentication
+     * 
+     * @return string Base64 encoded random bytes
      */
     public function getChallenge(): string
     {
-        return base64_encode(random_bytes(self::CHALLENGE_LENGTH));
+        // Use openssl_random_pseudo_bytes as an alternative to random_bytes
+        return base64_encode(openssl_random_pseudo_bytes(self::CHALLENGE_LENGTH));
     }
 
     public function verifyPublicKeyCredentials(WP_REST_Request $request): WP_REST_Response|WP_Error
     {
         try {
+            // Log the request for debugging
+            error_log('[WP Passkeys] Verify request received with ID: ' . $request->get_param('id'));
+
             $authenticatorAssertionResponse =
                 $this->getAuthenticatorAssertionResponse(
                     $this->getPublicKeyCredential($request)
@@ -111,12 +118,37 @@ class AuthEndpoints implements AuthEndpointsInterface
             );
 
             $response = new WP_REST_Response($this->verifiedResponse, 200);
+
+            // Log successful verification
+            error_log('[WP Passkeys] Successfully verified credential for ID: ' . $request->get_param('id'));
         } catch (JsonException | InvalidCredentialsException $e) {
-            $response = $this->utilities->handleException($e, $e->getCode());
-        } catch (InvalidArgument $e) {
-            $response = $this->utilities->handleException($e, 'Invalid Argument');
+            // For 404 errors, ensure we return a 404 status code
+            $statusCode = $e->getCode() === 404 ? 404 : 400;
+            $errorMessage = $e->getMessage();
+
+            error_log('[WP Passkeys] Verification error (' . $statusCode . '): ' . $errorMessage);
+
+            $response = new WP_REST_Response([
+                'code'    => $e->getCode() ?: $statusCode,
+                'message' => 'An error occurred while processing your request.',
+                'dev_message' => $errorMessage,
+            ], $statusCode);
+        } catch (InvalidArgumentException $e) {
+            error_log('[WP Passkeys] Invalid argument error: ' . $e->getMessage());
+
+            $response = new WP_REST_Response([
+                'code'    => 'Invalid Argument',
+                'message' => 'An error occurred while processing your request.',
+                'dev_message' => $e->getMessage(),
+            ], 400);
         } catch (Throwable $e) {
-            $response = $this->utilities->handleException($e);
+            error_log('[WP Passkeys] Unexpected error: ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine());
+
+            $response = new WP_REST_Response([
+                'code'    => 500,
+                'message' => 'An error occurred while processing your request.',
+                'dev_message' => $e->getMessage(),
+            ], 500);
         }
 
         return $response;
@@ -140,37 +172,91 @@ class AuthEndpoints implements AuthEndpointsInterface
 
     public function getPublicKeyCredential(WP_REST_Request $request): PublicKeyCredential
     {
-        return $this->serializer->create()->deserialize($request->get_body(), PublicKeyCredential::class, 'json');
+        try {
+            $body = $request->get_body();
+
+            // Log the request body for debugging
+            error_log('[WP Passkeys] Request body: ' . substr($body, 0, 200) . '...');
+
+            if (empty($body)) {
+                throw new InvalidArgumentException('Empty request body');
+            }
+
+            return $this->serializer->create()->deserialize($body, PublicKeyCredential::class, 'json');
+        } catch (Throwable $e) {
+            error_log('[WP Passkeys] Error deserializing PublicKeyCredential: ' . $e->getMessage());
+            throw $e;
+        }
     }
 
     public function validateAuthenticatorAssertionResponse(
         AuthenticatorAssertionResponse $authenticatorAssertionResponse,
         WP_REST_Request $request
     ): void {
-        $credentialId = $this->getPublicKeyCredential($request)->rawId;
-        if ($credentialId === '') {
-            throw new InvalidCredentialsException(
-                'You do not have any passkeys registered.',
-                403
+        try {
+            $credentialId = $this->getPublicKeyCredential($request)->rawId;
+            error_log('[WP Passkeys] Validating credential ID: ' . $this->utilities->safeEncode($credentialId));
+
+            if ($credentialId === '') {
+                error_log('[WP Passkeys] Empty credential ID');
+                throw new InvalidCredentialsException(
+                    'You do not have any passkeys registered.',
+                    404
+                );
+            }
+
+            $encodedCredentialId = $this->utilities->safeEncode($credentialId);
+            error_log('[WP Passkeys] Looking up credential ID: ' . $encodedCredentialId);
+
+            $publicKeyCredentialSource = $this->credentialHelper->findOneByCredentialId(
+                $encodedCredentialId,
             );
+
+            if ($publicKeyCredentialSource === null) {
+                error_log('[WP Passkeys] No credential source found for ID: ' . $encodedCredentialId);
+                throw new InvalidCredentialsException(
+                    'No user found with this credential. Please register a passkey first.',
+                    404
+                );
+            }
+
+            error_log('[WP Passkeys] Credential source found, proceeding with validation');
+
+            // Check if session data exists
+            $sessionData = $this->sessionHandler->get(self::SESSION_KEY);
+            if ($sessionData === null) {
+                error_log('[WP Passkeys] Session data is missing for key: ' . self::SESSION_KEY);
+                throw new InvalidCredentialsException(
+                    'Session data is missing. Please try again.',
+                    400
+                );
+            }
+
+            // Log session data for debugging
+            error_log('[WP Passkeys] Session data: ' . json_encode($sessionData));
+
+            // Perform the validation
+            try {
+                $this->authenticatorAssertionResponseValidator->check(
+                    $publicKeyCredentialSource,
+                    $authenticatorAssertionResponse,
+                    $sessionData,
+                    $this->utilities->getHostname(),
+                    $authenticatorAssertionResponse->userHandle,
+                    null
+                );
+                error_log('[WP Passkeys] Validation successful');
+            } catch (Throwable $e) {
+                error_log('[WP Passkeys] Validation error: ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine());
+                throw new InvalidCredentialsException(
+                    'Validation failed: ' . $e->getMessage(),
+                    400
+                );
+            }
+        } catch (Throwable $e) {
+            error_log('[WP Passkeys] Error in validateAuthenticatorAssertionResponse: ' . $e->getMessage());
+            throw $e;
         }
-        $publicKeyCredentialSource = $this->credentialHelper->findOneByCredentialId(
-            $this->getPublicKeyCredential($request)->rawId,
-        );
-        if ($publicKeyCredentialSource === null) {
-            throw new InvalidCredentialsException(
-                'Passkeys are not registered on this device.',
-                403
-            );
-        }
-        $this->authenticatorAssertionResponseValidator->check(
-            $publicKeyCredentialSource,
-            $authenticatorAssertionResponse,
-            $this->sessionHandler->get(self::SESSION_KEY),
-            $this->utilities->getHostname(),
-            $authenticatorAssertionResponse->userHandle,
-            null
-        );
     }
 
     /**

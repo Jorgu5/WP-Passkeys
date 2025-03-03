@@ -15,33 +15,72 @@ use WP_User;
 class Utilities
 {
     /**
-     * @param Throwable $exception
-     * @param int|string|null $errorCode
+     * Handle exceptions in a secure way, only exposing detailed information in development environments
+     *
+     * @param Throwable $exception The exception to handle
+     * @param int|string|null $errorCode The HTTP error code to return
      *
      * @return WP_REST_Response
      */
     public function handleException(Throwable $exception, int|string|null $errorCode = 500): WP_REST_Response
     {
+        // Log the exception for debugging
+        $this->logger($exception);
+
+        // Prepare a user-friendly error message
+        $userMessage = $this->getUserFriendlyErrorMessage($exception);
+
         $errorData = [
             'code'    => $errorCode,
-            'message' => $exception->getMessage(),
+            'message' => $userMessage,
         ];
 
+        // Only include detailed error information in development environments
         if (
             (defined('WP_ENVIRONMENT_TYPE') && WP_ENVIRONMENT_TYPE === 'development') ||
             (defined('WP_DEBUG') && WP_DEBUG)
         ) {
+            $errorData['dev_message'] = $exception->getMessage();
             $errorData['trace'] = $exception->getTrace();
         }
 
         return new WP_REST_Response($errorData, $errorCode);
     }
 
+    /**
+     * Get a user-friendly error message based on the exception type
+     * 
+     * @param Throwable $exception The exception
+     * @return string A user-friendly error message
+     */
+    private function getUserFriendlyErrorMessage(Throwable $exception): string
+    {
+        // Default generic message
+        $message = 'An error occurred while processing your request.';
+
+        // Customize message based on exception type
+        if (strpos($exception->getMessage(), 'credential') !== false) {
+            $message = 'There was an issue with your passkey credentials. Please try again.';
+        } elseif (strpos($exception->getMessage(), 'session') !== false) {
+            $message = 'Your session has expired. Please refresh the page and try again.';
+        } elseif (strpos($exception->getMessage(), 'user') !== false) {
+            $message = 'There was an issue with your user account. Please contact support.';
+        }
+
+        return $message;
+    }
+
+    /**
+     * Log errors and exceptions
+     * 
+     * @param mixed $error The error to log
+     * @return void
+     */
     public function logger($error): void
     {
         if ($error instanceof Throwable) {
             $logMessage = sprintf(
-                "Exception occurred: %s in %s:%d\nStack trace:\n%s",
+                "[WP Passkeys] Exception occurred: %s in %s:%d\nStack trace:\n%s",
                 $error->getMessage(),
                 $error->getFile(),
                 $error->getLine(),
@@ -49,7 +88,7 @@ class Utilities
             );
         } elseif ($error instanceof WP_Error) {
             $logMessage = sprintf(
-                "WordPress Error: '%s' with code '%s'",
+                "[WP Passkeys] WordPress Error: '%s' with code '%s'",
                 $error->get_error_message(),
                 $error->get_error_code()
             );
@@ -58,7 +97,7 @@ class Utilities
         }
 
         if (defined('WP_DEBUG_LOG') && WP_DEBUG) {
-            error_log(print_r($logMessage, true));
+            error_log($logMessage);
         }
     }
 
