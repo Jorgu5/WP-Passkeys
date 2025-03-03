@@ -1,15 +1,41 @@
 {
   "compilerOptions": {
     "target": "es2023",
+    "module": "esnext",
     "strict": true,
+    "noImplicitAny": true,
+    "strictNullChecks": true,
+    "strictFunctionTypes": true,
+    "strictBindCallApply": true,
+    "strictPropertyInitialization": true,
+    "noImplicitThis": true,
+    "alwaysStrict": true,
     "types": [
-      "node"
+      "node",
+      "vite/client"
     ],
     "typeRoots": [
-      "../node_modules/@types"
+      "./node_modules/@types"
     ],
-    "moduleResolution": "Node",
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
     "allowSyntheticDefaultImports": true,
-    "esModuleInterop": true
-  }
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "baseUrl": "./assets/js",
+    "paths": {
+      "@types/*": ["types", "WebauthnTypes"]
+    }
+  },
+  "include": [
+    "assets/js/**/*.ts",
+    "assets/js/**/*.tsx",
+    "vite.config.js"
+  ],
+  "exclude": [
+    "node_modules"
+  ]
 }
